@@ -1,0 +1,30 @@
+Beginning AutoGluon training...
+AutoGluon will save models to '/home/waldo/dev/projects/chronos-raw/AutogluonModels/ag-20250919_170331'
+=================== System Info ===================
+AutoGluon Version:  1.2
+Python Version:     3.11.13
+Operating System:   Linux
+Platform Machine:   x86_64
+Platform Version:   #1 SMP Tue Nov 5 00:21:55 UTC 2024
+CPU Count:          8
+GPU Count:          0
+Memory Avail:       30.08 GB / 31.22 GB (96.3%)
+Disk Space Avail:   873.23 GB / 1006.85 GB (86.7%)
+===================================================
+Setting presets to: bolt_small
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': WQL,
+ 'hyperparameters': {'Chronos': {'model_path': 'bolt_small'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 48,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': 'target',
+ 'verbosity': 2}
+

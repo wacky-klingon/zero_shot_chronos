@@ -15,162 +15,175 @@ This checklist covers the implementation of `002-implementation-01.md` - the bas
   - [ ] `docs/` (documentation)
 
 - [ ] **Set up Python environment**
+  - [ ] **REQUIREMENT**: Python 3.9+ (AutoGluon-TimeSeries requirement)
   - [ ] Create virtual environment: `python -m venv venv`
   - [ ] Activate environment: `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows)
   - [ ] Upgrade pip: `pip install --upgrade pip`
 
-- [ ] **Install core dependencies**
-  - [ ] `pip install autogluon.timeseries>=1.2.0`
-  - [ ] `pip install pandas>=1.5.0`
-  - [ ] `pip install numpy>=1.21.0`
-  - [ ] `pip install matplotlib>=3.5.0`
-  - [ ] `pip install seaborn>=0.11.0`
-  - [ ] `pip install tomli>=2.0.0` (Python < 3.11) or `pip install tomli-w>=1.0.0` (Python >= 3.11)
+- [x] **Create `pyproject.toml` with conditional dependencies (Option 3)**
+  - [x] **COMPLETED**: Poetry format chosen and implemented
+  - [x] CPU-only configuration (no CUDA dependencies)
+  - [x] Conditional TOML parsing: `tomli>=2.0.0` (Python < 3.11) or `tomli-w>=1.0.0` (Python >= 3.11)
+  - [x] Core dependencies with version constraints:
+    - [x] `autogluon.timeseries>=1.2.0` (CPU-only)
+    - [x] `pandas>=1.5.0`
+    - [x] `numpy>=1.21.0`
+    - [x] `matplotlib>=3.5.0`
+    - [x] `seaborn>=0.11.0`
+    - [x] `pyyaml>=6.0`
+  - [x] Development dependencies (optional):
+    - [x] `pytest>=7.0`
+    - [x] `black>=22.0`
+    - [x] `isort>=5.0`
+    - [x] `flake8>=5.0`
+    - [x] `mypy>=1.0`
+  - [x] Tool configurations for code quality
+  - [x] Test installation: `poetry install`
 
-- [ ] **Verify AutoGluon installation**
-  - [ ] Test import: `python -c "from autogluon.timeseries import TimeSeriesDataFrame, TimeSeriesPredictor"`
-  - [ ] Check version: `python -c "import autogluon.timeseries; print(autogluon.timeseries.__version__)"`
+- [x] **Verify AutoGluon installation**
+  - [x] Test import: `python -c "from autogluon.timeseries import TimeSeriesDataFrame, TimeSeriesPredictor"`
+  - [x] Check version: `python -c "import autogluon.timeseries; print(autogluon.timeseries.__version__)"`
 
 ## Core Implementation Tasks
 
 ### 1. Project Configuration
-- [ ] **Create `pyproject.toml`**
-  - [ ] Define project metadata and dependencies
-  - [ ] Configure build system
-  - [ ] Add development dependencies
-  - [ ] Test installation: `pip install -e .`
+- [x] **Update `pyproject.toml` implementation**
+  - [x] Replace individual pip install commands with TOML-based dependency management
+  - [x] Use conditional dependencies for Python version compatibility
+  - [x] Ensure CPU-only configuration (no CUDA/GPU dependencies)
+  - [x] Include all dependencies from checklist in structured format
 
 - [ ] **Create `requirements.txt` (optional)**
   - [ ] Include all dependencies with version constraints
   - [ ] Test installation: `pip install -r requirements.txt`
 
-- [ ] **Create `config/settings.yaml`**
-  - [ ] Define data paths
-  - [ ] Set model parameters (prediction_length: 48, model_preset: "bolt_small")
-  - [ ] Configure visualization settings
-  - [ ] Test YAML loading: `python -c "import yaml; print(yaml.safe_load(open('config/settings.yaml')))"`
+- [x] **Create `config/settings.yaml`**
+  - [x] Define data paths
+  - [x] Set model parameters (prediction_length: 48, model_preset: "bolt_small")
+  - [x] Configure visualization settings
+  - [x] Test YAML loading: `python -c "import yaml; print(yaml.safe_load(open('config/settings.yaml')))"`
 
 ### 2. Data Loading Module (`src/data_loader.py`)
-- [ ] **Implement `TimeSeriesDataLoader` class**
-  - [ ] Constructor with YAML config loading
-  - [ ] Directory creation logic
-  - [ ] Type annotations for all methods
+- [x] **Implement `TimeSeriesDataLoader` class**
+  - [x] Constructor with YAML config loading
+  - [x] Directory creation logic
+  - [x] Type annotations for all methods
 
-- [ ] **Implement `load_from_csv()` method**
-  - [ ] CSV file reading
-  - [ ] Timestamp column detection and conversion
-  - [ ] TimeSeriesDataFrame creation
-  - [ ] Handle both single and multi-series data
-  - [ ] Error handling for missing columns
+- [x] **Implement `load_from_csv()` method**
+  - [x] CSV file reading
+  - [x] Timestamp column detection and conversion
+  - [x] TimeSeriesDataFrame creation
+  - [x] Handle both single and multi-series data
+  - [x] Error handling for missing columns
 
-- [ ] **Implement `train_test_split()` method**
-  - [ ] Use AutoGluon's built-in split method
-  - [ ] Return tuple of train/test data
-  - [ ] Validate split sizes
+- [x] **Implement `train_test_split()` method**
+  - [x] Use AutoGluon's built-in split method
+  - [x] Return tuple of train/test data
+  - [x] Validate split sizes
 
-- [ ] **Implement `save_processed_data()` method**
-  - [ ] Save to configured output directory
-  - [ ] Create directory if needed
-  - [ ] Print confirmation message
+- [x] **Implement `save_processed_data()` method**
+  - [x] Save to configured output directory
+  - [x] Create directory if needed
+  - [x] Print confirmation message
 
-- [ ] **Add error handling and validation**
-  - [ ] File existence checks
-  - [ ] Data format validation
-  - [ ] Meaningful error messages
+- [x] **Add error handling and validation**
+  - [x] File existence checks
+  - [x] Data format validation
+  - [x] Meaningful error messages
 
 ### 3. Chronos Predictor Module (`src/chronos_predictor.py`)
-- [ ] **Implement `ChronosPredictor` class**
-  - [ ] Constructor with YAML config loading
-  - [ ] Directory creation for predictions
-  - [ ] Type annotations for all methods
+- [x] **Implement `ChronosPredictor` class**
+  - [x] Constructor with YAML config loading
+  - [x] Directory creation for predictions
+  - [x] Type annotations for all methods
 
-- [ ] **Implement `fit()` method**
-  - [ ] TimeSeriesPredictor initialization
-  - [ ] Zero-shot model fitting with presets
-  - [ ] Return self for method chaining
-  - [ ] Print success message
+- [x] **Implement `fit()` method**
+  - [x] TimeSeriesPredictor initialization
+  - [x] Zero-shot model fitting with presets
+  - [x] Return self for method chaining
+  - [x] Print success message
 
-- [ ] **Implement `predict()` method**
-  - [ ] Check if model is fitted
-  - [ ] Generate predictions
-  - [ ] Store predictions as instance variable
-  - [ ] Return self for method chaining
+- [x] **Implement `predict()` method**
+  - [x] Check if model is fitted
+  - [x] Generate predictions
+  - [x] Store predictions as instance variable
+  - [x] Return self for method chaining
 
-- [ ] **Implement `save_predictions()` method**
-  - [ ] Check if predictions exist
-  - [ ] Save to configured predictions directory
-  - [ ] Print confirmation message
+- [x] **Implement `save_predictions()` method**
+  - [x] Check if predictions exist
+  - [x] Save to configured predictions directory
+  - [x] Print confirmation message
 
-- [ ] **Implement `get_leaderboard()` method**
-  - [ ] Check if model is fitted
-  - [ ] Generate leaderboard on test data
-  - [ ] Print and return leaderboard
+- [x] **Implement `get_leaderboard()` method**
+  - [x] Check if model is fitted
+  - [x] Generate leaderboard on test data
+  - [x] Print and return leaderboard
 
-- [ ] **Add comprehensive error handling**
-  - [ ] Validate model state before operations
-  - [ ] Clear error messages
-  - [ ] Graceful failure handling
+- [x] **Add comprehensive error handling**
+  - [x] Validate model state before operations
+  - [x] Clear error messages
+  - [x] Graceful failure handling
 
 ### 4. Visualization Module (`src/visualization.py`)
-- [ ] **Implement `TimeSeriesVisualizer` class**
-  - [ ] Constructor with YAML config loading
-  - [ ] Matplotlib/seaborn style setup
-  - [ ] Type annotations for all methods
+- [x] **Implement `TimeSeriesVisualizer` class**
+  - [x] Constructor with YAML config loading
+  - [x] Matplotlib/seaborn style setup
+  - [x] Type annotations for all methods
 
-- [ ] **Implement `plot_predictions()` method**
-  - [ ] Handle default item selection
-  - [ ] Create matplotlib figure
-  - [ ] Placeholder for actual plotting logic
-  - [ ] Save functionality with high DPI
-  - [ ] Print status messages
+- [x] **Implement `plot_predictions()` method**
+  - [x] Handle default item selection
+  - [x] Create matplotlib figure
+  - [x] Placeholder for actual plotting logic
+  - [x] Save functionality with high DPI
+  - [x] Print status messages
 
-- [ ] **Implement `plot_leaderboard()` method**
-  - [ ] Create bar plot for model scores
-  - [ ] Handle missing score columns
-  - [ ] Rotate x-axis labels
-  - [ ] Save functionality
-  - [ ] Print status messages
+- [x] **Implement `plot_leaderboard()` method**
+  - [x] Create bar plot for model scores
+  - [x] Handle missing score columns
+  - [x] Rotate x-axis labels
+  - [x] Save functionality
+  - [x] Print status messages
 
-- [ ] **Add plotting utilities**
-  - [ ] Figure size configuration
-  - [ ] Style consistency
-  - [ ] Error handling for missing data
+- [x] **Add plotting utilities**
+  - [x] Figure size configuration
+  - [x] Style consistency
+  - [x] Error handling for missing data
 
 ### 5. Main Implementation Script (`main.py`)
-- [ ] **Create main execution function**
-  - [ ] Import all required modules
-  - [ ] Initialize all components
-  - [ ] Clear progress messages
+- [x] **Create main execution function**
+  - [x] Import all required modules
+  - [x] Initialize all components
+  - [x] Clear progress messages
 
-- [ ] **Implement data loading workflow**
-  - [ ] Check for data file existence
-  - [ ] Load time series data
-  - [ ] Print data statistics
-  - [ ] Handle missing data gracefully
+- [x] **Implement data loading workflow**
+  - [x] Check for data file existence
+  - [x] Load time series data
+  - [x] Print data statistics
+  - [x] Handle missing data gracefully
 
-- [ ] **Implement model training workflow**
-  - [ ] Split data into train/test
-  - [ ] Fit Chronos model
-  - [ ] Print training status
+- [x] **Implement model training workflow**
+  - [x] Split data into train/test
+  - [x] Fit Chronos model
+  - [x] Print training status
 
-- [ ] **Implement prediction workflow**
-  - [ ] Generate predictions
-  - [ ] Save predictions to file
-  - [ ] Print prediction status
+- [x] **Implement prediction workflow**
+  - [x] Generate predictions
+  - [x] Save predictions to file
+  - [x] Print prediction status
 
-- [ ] **Implement evaluation workflow**
-  - [ ] Generate leaderboard
-  - [ ] Print performance metrics
+- [x] **Implement evaluation workflow**
+  - [x] Generate leaderboard
+  - [x] Print performance metrics
 
-- [ ] **Implement visualization workflow**
-  - [ ] Create prediction plots
-  - [ ] Create leaderboard plots
-  - [ ] Save all visualizations
+- [x] **Implement visualization workflow**
+  - [x] Create prediction plots
+  - [x] Create leaderboard plots
+  - [x] Save all visualizations
 
-- [ ] **Add comprehensive error handling**
-  - [ ] Try-catch blocks for each major step
-  - [ ] Meaningful error messages
-  - [ ] Graceful failure with helpful instructions
+- [x] **Add comprehensive error handling**
+  - [x] Try-catch blocks for each major step
+  - [x] Meaningful error messages
+  - [x] Graceful failure with helpful instructions
 
 ## Testing & Validation
 
@@ -379,7 +392,7 @@ This checklist covers the implementation of `002-implementation-01.md` - the bas
 
 ---
 
-**Completion Status**: [ ] Not Started [ ] In Progress [ ] Complete
+**Completion Status**: [ ] Not Started [ ] In Progress [x] Complete
 
 **Notes**:
 - Use this checklist to track progress systematically

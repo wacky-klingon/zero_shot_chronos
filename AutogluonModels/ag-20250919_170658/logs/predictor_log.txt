@@ -1,0 +1,49 @@
+Beginning AutoGluon training...
+AutoGluon will save models to '/home/waldo/dev/projects/chronos-raw/AutogluonModels/ag-20250919_170658'
+=================== System Info ===================
+AutoGluon Version:  1.2
+Python Version:     3.11.13
+Operating System:   Linux
+Platform Machine:   x86_64
+Platform Version:   #1 SMP Tue Nov 5 00:21:55 UTC 2024
+CPU Count:          8
+GPU Count:          0
+Memory Avail:       30.09 GB / 31.22 GB (96.4%)
+Disk Space Avail:   873.18 GB / 1006.85 GB (86.7%)
+===================================================
+Setting presets to: bolt_small
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': WQL,
+ 'hyperparameters': {'Chronos': {'model_path': 'bolt_small'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 48,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': 'target',
+ 'verbosity': 2}
+
+Inferred time series frequency: 'D'
+Provided train_data has 73 rows, 1 time series. Median time series length is 73 (min=73, max=73). 
+
+Provided data contains following columns:
+	target: 'target'
+
+AutoGluon will gauge predictive performance using evaluation metric: 'WQL'
+	This metric's sign has been flipped to adhere to being higher_is_better. The metric score can be multiplied by -1 to get the metric value.
+===================================================
+
+Starting training. Start time is 2025-09-19 13:06:59
+Models that will be trained: ['Chronos[bolt_small]']
+Training timeseries model Chronos[bolt_small]. 
+	0.87    s     = Training runtime
+Training complete. Models trained: ['Chronos[bolt_small]']
+Total runtime: 0.87 s
+Best model: Chronos[bolt_small]
+Model not specified in predict, will default to the model with the best validation score: Chronos[bolt_small]
+Additional data provided, testing on additional data. Resulting leaderboard will be sorted according to test score (`score_test`).

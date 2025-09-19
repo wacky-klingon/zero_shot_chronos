@@ -1,0 +1,13 @@
+data:
+  input_dir: "data/raw"
+  output_dir: "data/processed"
+  predictions_dir: "data/predictions"
+  
+model:
+  prediction_length: 48
+  model_preset: "bolt_small"
+  
+visualization:
+  max_history_length: 200
+  figure_size: [12, 8]
+  style: "seaborn-v0_8"

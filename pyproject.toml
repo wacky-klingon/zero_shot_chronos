@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "chronos-raw"
+version = "0.1.0"
+description = "Chronos time series forecasting with AutoGluon - CPU-only implementation"
+authors = ["Chronos Raw Team <team@chronos-raw.dev>"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+autogluon-timeseries = "1.2.0"
+transformers = ">=4.35.0,<4.40.0"
+pandas = "^2.0.0"
+numpy = "^1.24.0"
+matplotlib = "^3.7.0"
+seaborn = "^0.12.0"
+pyyaml = "^6.0"
+tomli = {version = "^2.0.0", python = "<3.11"}
+tomli-w = {version = "^1.0.0", python = ">=3.11"}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-cov = "^4.0"
+black = "^22.0"
+isort = "^5.0"
+flake8 = "^5.0"
+mypy = "^1.0"
+
+[tool.poetry.urls]
+Homepage = "https://github.com/chronos-raw/chronos-raw"
+Repository = "https://github.com/chronos-raw/chronos-raw.git"
+Issues = "https://github.com/chronos-raw/chronos-raw/issues"
+
+[tool.black]
+line-length = 88
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

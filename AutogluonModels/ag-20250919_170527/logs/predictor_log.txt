@@ -1,0 +1,129 @@
+Beginning AutoGluon training...
+AutoGluon will save models to '/home/waldo/dev/projects/chronos-raw/AutogluonModels/ag-20250919_170527'
+=================== System Info ===================
+AutoGluon Version:  1.2
+Python Version:     3.11.13
+Operating System:   Linux
+Platform Machine:   x86_64
+Platform Version:   #1 SMP Tue Nov 5 00:21:55 UTC 2024
+CPU Count:          8
+GPU Count:          0
+Memory Avail:       30.09 GB / 31.22 GB (96.4%)
+Disk Space Avail:   873.23 GB / 1006.85 GB (86.7%)
+===================================================
+Setting presets to: bolt_small
+
+Fitting with arguments:
+{'enable_ensemble': True,
+ 'eval_metric': WQL,
+ 'hyperparameters': {'Chronos': {'model_path': 'bolt_small'}},
+ 'known_covariates_names': [],
+ 'num_val_windows': 1,
+ 'prediction_length': 48,
+ 'quantile_levels': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+ 'random_seed': 123,
+ 'refit_every_n_windows': 1,
+ 'refit_full': False,
+ 'skip_model_selection': True,
+ 'target': 'target',
+ 'verbosity': 2}
+
+Inferred time series frequency: 'D'
+Provided train_data has 73 rows, 1 time series. Median time series length is 73 (min=73, max=73). 
+
+Provided data contains following columns:
+	target: 'target'
+
+AutoGluon will gauge predictive performance using evaluation metric: 'WQL'
+	This metric's sign has been flipped to adhere to being higher_is_better. The metric score can be multiplied by -1 to get the metric value.
+===================================================
+
+Starting training. Start time is 2025-09-19 13:05:28
+Models that will be trained: ['Chronos[bolt_small]']
+Training timeseries model Chronos[bolt_small]. 
+	4.09    s     = Training runtime
+Training complete. Models trained: ['Chronos[bolt_small]']
+Total runtime: 4.10 s
+Best model: Chronos[bolt_small]
+Model not specified in predict, will default to the model with the best validation score: Chronos[bolt_small]
+Model Chronos[bolt_small] failed to predict with the following exception:
+Traceback (most recent call last):
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/autogluon/timeseries/trainer/abstract_trainer.py", line 1224, in get_model_pred_dict
+    model_pred_dict[model_name] = self._predict_model(
+                                  ^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/autogluon/timeseries/trainer/abstract_trainer.py", line 1151, in _predict_model
+    return model.predict(data, known_covariates=known_covariates)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/autogluon/timeseries/models/abstract/abstract_timeseries_model.py", line 432, in predict
+    predictions = self._predict(data=data, known_covariates=known_covariates, **kwargs)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/autogluon/timeseries/models/chronos/model.py", line 612, in _predict
+    qs, mn = self.model_pipeline.predict_quantiles(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/autogluon/timeseries/models/chronos/pipeline/chronos_bolt.py", line 450, in predict_quantiles
+    self.predict(
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/autogluon/timeseries/models/chronos/pipeline/chronos_bolt.py", line 425, in predict
+    prediction = self.model(
+                 ^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/autogluon/timeseries/models/chronos/pipeline/chronos_bolt.py", line 278, in forward
+    sequence_output = self.decode(input_embeds, attention_mask, hidden_states)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/autogluon/timeseries/models/chronos/pipeline/chronos_bolt.py", line 364, in decode
+    decoder_outputs = self.decoder(
+                      ^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/transformers/models/t5/modeling_t5.py", line 1099, in forward
+    layer_outputs = layer_module(
+                    ^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/transformers/modeling_layers.py", line 94, in __call__
+    return super().__call__(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/transformers/models/t5/modeling_t5.py", line 710, in forward
+    cross_attention_outputs = self.layer[1](
+                              ^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/transformers/models/t5/modeling_t5.py", line 639, in forward
+    attention_output = self.EncDecAttention(
+                       ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/waldo/dev/projects/chronos-raw/.venv/lib/python3.11/site-packages/transformers/models/t5/modeling_t5.py", line 507, in forward
+    if is_cross_attention and past_key_values is not None and is_updated:
+                                                              ^^^^^^^^^^
+UnboundLocalError: cannot access local variable 'is_updated' where it is not associated with a value
+
