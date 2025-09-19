@@ -128,7 +128,8 @@ data:
   
 model:
   prediction_length: 48
-  model_preset: "bolt_small"
+  model_path: "models/chronos_model"
+  mode: "train"  # "train" or "inference"
   
 visualization:
   max_history_length: 200
@@ -208,21 +209,36 @@ class ChronosPredictor:
             self.config = yaml.safe_load(file)
         
         self.prediction_length = self.config['model']['prediction_length']
-        self.model_preset = self.config['model']['model_preset']
+        self.model_path = Path(self.config['model']['model_path'])
+        self.mode = self.config['model']['mode']
         self.predictions_dir = Path(self.config['data']['predictions_dir'])
         self.predictions_dir.mkdir(parents=True, exist_ok=True)
         
         self.predictor = None
+        self.predictions = None
     
     def fit(self, train_data) -> 'ChronosPredictor':
-        """Fit the Chronos model in zero-shot mode."""
+        """Fit the Chronos model in zero-shot mode and save to specified path."""
         self.predictor = TimeSeriesPredictor(
             prediction_length=self.prediction_length
         ).fit(
             train_data, 
-            presets=self.model_preset
+            presets="bolt_small"  # Use default preset for training
         )
-        print(f"Chronos model ({self.model_preset}) fitted successfully")
+        
+        # Save the model to specified path
+        self.model_path.mkdir(parents=True, exist_ok=True)
+        self.predictor.save(str(self.model_path))
+        print(f"Chronos model fitted and saved to: {self.model_path}")
+        return self
+    
+    def load_model(self) -> 'ChronosPredictor':
+        """Load a pre-trained Chronos model from the specified path."""
+        if not self.model_path.exists():
+            raise FileNotFoundError(f"Model not found at: {self.model_path}")
+        
+        self.predictor = TimeSeriesPredictor.load(str(self.model_path))
+        print(f"Chronos model loaded from: {self.model_path}")
         return self
     
     def predict(self, data) -> 'ChronosPredictor':
@@ -231,11 +247,12 @@ class ChronosPredictor:
             raise ValueError("Model must be fitted before making predictions")
         
         self.predictions = self.predictor.predict(data)
+        print(f"Predictions generated for {len(data.item_ids)} series")
         return self
     
     def save_predictions(self, filename: str = "chronos_predictions.csv") -> None:
         """Save predictions to file."""
-        if not hasattr(self, 'predictions'):
+        if self.predictions is None:
             raise ValueError("No predictions available to save")
         
         output_path = self.predictions_dir / filename
@@ -361,9 +378,15 @@ def main():
     print(f"Train data: {len(train_data)} records")
     print(f"Test data: {len(test_data)} records")
     
-    # Fit Chronos model (zero-shot)
-    print("Fitting Chronos model...")
-    predictor.fit(train_data)
+    # Handle training vs inference mode
+    if predictor.mode == "train":
+        print("Training mode: Fitting Chronos model...")
+        predictor.fit(train_data)
+    elif predictor.mode == "inference":
+        print("Inference mode: Loading pre-trained model...")
+        predictor.load_model()
+    else:
+        raise ValueError(f"Invalid mode: {predictor.mode}. Use 'train' or 'inference'")
     
     # Generate predictions
     print("Generating predictions...")
@@ -441,9 +464,43 @@ timestamp,value,item_id
    - Predictions: `data/predictions/`
    - Visualizations: `data/predictions/*.png`
 
+## Static Model Loading
+
+This implementation supports both training and inference modes:
+
+### Training Mode
+- Fits Chronos model and saves to specified directory
+- Set `mode: "train"` in `config/settings.yaml`
+- Model artifacts saved to `models/chronos_model/`
+
+### Inference Mode  
+- Loads pre-trained model from specified directory
+- Set `mode: "inference"` in `config/settings.yaml`
+- No model training, only prediction on new data
+
+### Usage Examples
+
+**Training a new model:**
+```yaml
+# config/settings.yaml
+model:
+  prediction_length: 48
+  model_path: "models/my_chronos_model"
+  mode: "train"
+```
+
+**Using pre-trained model:**
+```yaml
+# config/settings.yaml  
+model:
+  prediction_length: 48
+  model_path: "models/my_chronos_model"
+  mode: "inference"
+```
+
 ## Next Steps
 
-This implementation provides the foundation for zero-shot forecasting. The next phase (documented in `003-finetuning.md`) will cover:
+This implementation provides the foundation for zero-shot forecasting with static model support. The next phase (documented in `003-finetuning.md`) will cover:
 - Fine-tuning Chronos models on custom data
 - Incorporating covariates and static features
 - Advanced model configuration and hyperparameter tuning

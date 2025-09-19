@@ -185,210 +185,77 @@ This checklist covers the implementation of `002-implementation-01.md` - the bas
   - [x] Meaningful error messages
   - [x] Graceful failure with helpful instructions
 
+### 6. Static Model Loading Enhancement
+- [ ] **Configuration Updates**
+  - [ ] Add `model_path` parameter to `config/settings.yaml`
+  - [ ] Remove `model_preset` (replace with local model path)
+  - [ ] Add model loading mode configuration (train vs inference)
+- [ ] **Chronos Predictor Module Updates**
+  - [ ] Add `load_model()` method for static model loading
+  - [ ] Modify `fit()` method to save model to specified path
+  - [ ] Add model existence validation
+  - [ ] Implement training vs inference mode detection
+- [ ] **Main Script Updates**
+  - [ ] Add command-line argument for mode selection (train/inference)
+  - [ ] Update workflow to support both training and inference modes
+  - [ ] Add model path validation before loading
+- [ ] **Testing & Validation**
+  - [ ] Test model saving functionality
+  - [ ] Test model loading from custom path
+  - [ ] Test inference-only workflow
+  - [ ] Validate model compatibility across runs
+
 ## Testing & Validation
 
-### Unit Testing
-- [ ] **Test data loader functionality**
+- [ ] **End-to-end workflow testing**
+  - [ ] Test complete pipeline with sample data
+  - [ ] Verify all output files are generated correctly
+  - [ ] Test error handling for missing files and invalid data
+
+- [ ] **Model functionality testing**
+  - [ ] Test Chronos model fitting and prediction generation
+  - [ ] Test static model loading and saving
+  - [ ] Validate prediction output format and quality
+
+- [ ] **Data processing validation**
   - [ ] Test CSV loading with various formats
-  - [ ] Test timestamp column detection
-  - [ ] Test TimeSeriesDataFrame creation
-  - [ ] Test train/test splitting
-  - [ ] Test data saving
-
-- [ ] **Test predictor functionality**
-  - [ ] Test model fitting
-  - [ ] Test prediction generation
-  - [ ] Test prediction saving
-  - [ ] Test leaderboard generation
-  - [ ] Test error handling
-
-- [ ] **Test visualization functionality**
-  - [ ] Test plot creation
-  - [ ] Test plot saving
-  - [ ] Test configuration loading
-
-### Integration Testing
-- [ ] **Test complete workflow**
-  - [ ] End-to-end execution with sample data
-  - [ ] Verify all output files are created
-  - [ ] Check file formats and contents
-  - [ ] Validate prediction quality
-
-- [ ] **Test error scenarios**
-  - [ ] Missing data file
-  - [ ] Invalid data format
-  - [ ] Missing configuration
-  - [ ] Insufficient data for splitting
-
-### Data Validation
-- [ ] **Prepare test data**
-  - [ ] Create sample time series CSV
-  - [ ] Include required columns (timestamp, value)
-  - [ ] Include optional columns (item_id)
-  - [ ] Ensure proper date format
-  - [ ] Add sufficient data points (100+ records)
-
-- [ ] **Validate data processing**
-  - [ ] Check timestamp parsing
-  - [ ] Verify TimeSeriesDataFrame structure
-  - [ ] Confirm train/test split sizes
-  - [ ] Validate prediction output format
+  - [ ] Verify TimeSeriesDataFrame creation and train/test splitting
+  - [ ] Test data saving and visualization generation
 
 ## Documentation & Code Quality
 
-### Code Quality
-- [ ] **Type annotations**
-  - [ ] All public methods have type hints
-  - [ ] Import statements for typing module
-  - [ ] Consistent return type annotations
+- [ ] **Code quality standards**
+  - [ ] Type annotations for all public methods
+  - [ ] Comprehensive docstrings and error handling
+  - [ ] Clean code organization and formatting
 
-- [ ] **Docstrings**
-  - [ ] Class docstrings with purpose description
-  - [ ] Method docstrings with parameters and returns
-  - [ ] Consistent docstring format
+- [ ] **Documentation updates**
+  - [ ] Update README.md with installation and usage instructions
+  - [ ] Add code comments for complex logic
 
-- [ ] **Code organization**
-  - [ ] Logical method ordering
-  - [ ] Clear variable names
-  - [ ] Consistent indentation and formatting
-  - [ ] Remove unused imports
+## Final Validation & Delivery
 
-- [ ] **Error handling**
-  - [ ] Comprehensive try-catch blocks
-  - [ ] Meaningful error messages
-  - [ ] Graceful failure modes
+- [ ] **Complete workflow validation**
+  - [ ] Run full pipeline with real data and verify all outputs
+  - [ ] Test static model loading and inference modes
+  - [ ] Validate error handling and edge cases
 
-### Documentation
-- [ ] **Update README.md**
-  - [ ] Installation instructions
-  - [ ] Usage examples
-  - [ ] Data format requirements
-  - [ ] Output descriptions
-
-- [ ] **Code comments**
-  - [ ] Complex logic explanations
-  - [ ] Configuration parameter descriptions
-  - [ ] TODO items for future enhancements
-
-## Performance & Optimization
-
-### Performance Testing
-- [ ] **Memory usage**
-  - [ ] Monitor memory consumption during data loading
-  - [ ] Check for memory leaks in prediction loop
-  - [ ] Optimize data structures if needed
-
-- [ ] **Execution time**
-  - [ ] Time each major operation
-  - [ ] Identify bottlenecks
-  - [ ] Optimize slow operations
-
-- [ ] **Scalability**
-  - [ ] Test with different data sizes
-  - [ ] Verify performance with larger datasets
-  - [ ] Document performance characteristics
-
-### Configuration Optimization
-- [ ] **Parameter tuning**
-  - [ ] Test different prediction lengths
-  - [ ] Experiment with different model presets
-  - [ ] Optimize visualization settings
-
-- [ ] **Resource management**
-  - [ ] Efficient file I/O operations
-  - [ ] Memory cleanup after operations
-  - [ ] Proper resource disposal
-
-## Deployment Preparation
-
-### Final Validation
-- [ ] **Complete workflow test**
-  - [ ] Run full pipeline with real data
-  - [ ] Verify all outputs are generated
-  - [ ] Check output quality and format
-  - [ ] Validate error handling
-
-- [ ] **Documentation review**
-  - [ ] Verify all instructions are accurate
-  - [ ] Test installation from scratch
-  - [ ] Validate example usage
-
-- [ ] **Code review**
-  - [ ] Review all code for bugs
-  - [ ] Check for security issues
-  - [ ] Validate error handling
-  - [ ] Ensure code follows best practices
-
-### Delivery Checklist
-- [ ] **All files created and tested**
-  - [ ] `pyproject.toml`
-  - [ ] `requirements.txt` (optional)
-  - [ ] `config/settings.yaml`
-  - [ ] `src/data_loader.py`
-  - [ ] `src/chronos_predictor.py`
-  - [ ] `src/visualization.py`
-  - [ ] `main.py`
-
-- [ ] **Documentation complete**
-  - [ ] Implementation guide updated
-  - [ ] Usage instructions verified
-  - [ ] Troubleshooting section added
-
-- [ ] **Ready for next phase**
-  - [ ] Foundation solid for advanced features
-  - [ ] Clear extension points identified
-  - [ ] Dependencies documented
+- [ ] **Documentation and code review**
+  - [ ] Update README.md with complete usage instructions
+  - [ ] Review code for bugs and best practices
+  - [ ] Ensure all files are properly tested and documented
 
 ## Success Criteria
 
-### Functional Requirements
-- [ ] **Zero-shot forecasting works**
-  - [ ] Chronos model loads and fits successfully
-  - [ ] Predictions are generated correctly
-  - [ ] Output format matches expectations
+- [ ] **Core functionality working**
+  - [ ] Zero-shot forecasting with Chronos models
+  - [ ] Static model loading and inference modes
+  - [ ] Data processing and visualization pipeline
 
-- [ ] **Data handling works**
-  - [ ] CSV files load correctly
-  - [ ] Time series format is proper
-  - [ ] Train/test splitting works
-
-- [ ] **Visualization works**
-  - [ ] Plots are generated
-  - [ ] Files are saved correctly
-  - [ ] Output quality is acceptable
-
-### Non-Functional Requirements
-- [ ] **Code quality**
-  - [ ] Type annotations present
-  - [ ] Error handling comprehensive
-  - [ ] Documentation complete
-
-- [ ] **Usability**
-  - [ ] Clear error messages
-  - [ ] Easy to configure
-  - [ ] Simple to run
-
-- [ ] **Maintainability**
-  - [ ] Modular design
-  - [ ] Clear separation of concerns
-  - [ ] Easy to extend
-
-## Next Steps Preparation
-
-- [ ] **Identify extension points**
-  - [ ] Where to add fine-tuning logic
-  - [ ] How to integrate covariate support
-  - [ ] Configuration expansion points
-
-- [ ] **Plan advanced features**
-  - [ ] Review 003-finetuning.md requirements
-  - [ ] Identify shared components
-  - [ ] Plan refactoring needs
-
-- [ ] **Document lessons learned**
-  - [ ] Common issues encountered
-  - [ ] Performance considerations
-  - [ ] Best practices discovered
+- [ ] **Code quality and usability**
+  - [ ] Clean, well-documented code with proper error handling
+  - [ ] Easy to configure and run
+  - [ ] Ready for production use
 
 ---
 
