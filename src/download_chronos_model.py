@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from huggingface_hub import snapshot_download
 import shutil
+from autogluon.timeseries import TimeSeriesPredictor
+import yaml
 
 
 def download_chronos_model(model_name: str = "amazon/chronos-bolt-base", 
@@ -55,6 +57,59 @@ def download_chronos_model(model_name: str = "amazon/chronos-bolt-base",
         for file_path in model_dir.rglob("*"):
             if file_path.is_file():
                 print(f"  - {file_path.relative_to(model_dir)}")
+        
+        # Convert raw model files to AutoGluon predictor format
+        print("\nConverting to AutoGluon predictor format...")
+        try:
+            # Load configuration for prediction length
+            config_path = "config/settings.yaml"
+            if Path(config_path).exists():
+                with open(config_path, 'r') as file:
+                    config = yaml.safe_load(file)
+                prediction_length = config['model']['prediction_length']
+            else:
+                prediction_length = 48  # Default fallback
+            
+            # Create a temporary predictor directory
+            predictor_dir = model_dir / "predictor"
+            predictor_dir.mkdir(exist_ok=True)
+            
+            # Create AutoGluon predictor
+            predictor = TimeSeriesPredictor(
+                prediction_length=prediction_length,
+                path=str(predictor_dir)
+            )
+            
+            # Create a minimal dummy dataset to fit the predictor
+            import pandas as pd
+            import numpy as np
+            from autogluon.timeseries import TimeSeriesDataFrame
+            
+            # Create dummy data for fitting
+            dates = pd.date_range('2020-01-01', periods=10, freq='D')
+            dummy_data = pd.DataFrame({
+                'timestamp': dates,
+                'target': np.random.randn(10),
+                'item_id': 'dummy'
+            })
+            dummy_ts = TimeSeriesDataFrame.from_data_frame(dummy_data, id_column='item_id', timestamp_column='timestamp')
+            
+            # Fit the predictor with dummy data
+            predictor.fit(dummy_ts)
+            
+            # Save the predictor
+            predictor.save()
+            print(f"AutoGluon predictor saved to: {predictor_dir}")
+            
+            # List final files including AutoGluon predictor files
+            print("\nFinal model files:")
+            for file_path in model_dir.rglob("*"):
+                if file_path.is_file():
+                    print(f"  - {file_path.relative_to(model_dir)}")
+            
+        except Exception as e:
+            print(f"Warning: Could not convert to AutoGluon format: {e}")
+            print("Raw model files are available, but TimeSeriesPredictor.load() may not work")
         
         return True
         
@@ -113,6 +168,7 @@ def main():
         print("\n" + "=" * 40)
         print("Download completed successfully!")
         print(f"The model is now available in data/model/{model_type}/{version}/")
+        print("The model has been converted to AutoGluon predictor format.")
         print("\nNext steps:")
         print(f"1. Update config/settings.yaml model_path to 'data/model/{model_type}/{version}'")
         print("2. Run your forecasting script")

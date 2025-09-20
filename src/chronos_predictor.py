@@ -26,7 +26,12 @@ class ChronosPredictor:
             self.config = yaml.safe_load(file)
         
         self.prediction_length = self.config['model']['prediction_length']
-        self.model_preset = self.config['model']['model_preset']
+        self.model_path = self.config['model']['model_path']
+        self.model_name = self.config['model']['model_name']
+        self.model_type = self.config['model']['model_type']
+        self.version = self.config['model']['version']
+        self.loading_mode = self.config['model']['loading_mode']
+        self.auto_detect_mode = self.config['model']['auto_detect_mode']
         self.predictions_dir = Path(self.config['data']['predictions_dir'])
         self.predictions_dir.mkdir(parents=True, exist_ok=True)
         
@@ -47,13 +52,33 @@ class ChronosPredictor:
             ValueError: If training data is invalid
         """
         try:
-            self.predictor = TimeSeriesPredictor(
-                prediction_length=self.prediction_length
-            ).fit(
-                train_data, 
-                presets=self.model_preset
-            )
-            print(f"Chronos model ({self.model_preset}) fitted successfully")
+            # Check if model path exists for inference mode
+            model_path_exists = Path(self.model_path).exists()
+            
+            if (self.loading_mode == "inference" and model_path_exists) or (self.auto_detect_mode and model_path_exists):
+                # Check if predictor subdirectory exists
+                predictor_path = Path(self.model_path) / "predictor"
+                if predictor_path.exists():
+                    # Load existing AutoGluon predictor
+                    self.predictor = TimeSeriesPredictor.load(str(predictor_path))
+                    print(f"Chronos model ({self.model_type} v{self.version}) loaded from {predictor_path}")
+                else:
+                    # Fall back to preset mode
+                    print(f"Warning: No AutoGluon predictor found at {predictor_path}. Using preset mode.")
+                    raise ValueError("No AutoGluon predictor found")
+            else:
+                # Use preset for training or when model doesn't exist
+                if self.loading_mode == "inference" and not model_path_exists:
+                    print(f"Warning: Model path {self.model_path} does not exist. Using preset instead.")
+                
+                preset_name = f"chronos_{self.model_type.replace('-', '_')}"
+                self.predictor = TimeSeriesPredictor(
+                    prediction_length=self.prediction_length
+                ).fit(
+                    train_data, 
+                    presets=preset_name
+                )
+                print(f"Chronos model ({preset_name}) fitted successfully")
             return self
         except Exception as e:
             raise ValueError(f"Error fitting Chronos model: {e}")

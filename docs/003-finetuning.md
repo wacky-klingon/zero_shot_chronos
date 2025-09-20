@@ -1,12 +1,12 @@
-# Advanced Chronos Implementation: Fine-tuning and Covariates
+# Advanced Chronos Implementation: Fine-tuning and Custom Models
 
-This document extends the zero-shot forecasting implementation with advanced features including model fine-tuning, covariate integration, and enhanced model configurations.
+This document extends the direct Chronos forecasting implementation with advanced features including model fine-tuning, custom model integration, and enhanced model configurations.
 
 ## Overview
 
 Building on the foundation established in `002-implementation-01.md`, this phase covers:
 - Fine-tuning Chronos models on custom datasets
-- Incorporating covariates and static features
+- Integrating custom trained Chronos models
 - Advanced hyperparameter configuration
 - Model ensemble and comparison strategies
 
@@ -18,30 +18,35 @@ chronos-raw/
 │   ├── raw/                    # Original time series data
 │   ├── processed/              # Cleaned and formatted data
 │   ├── predictions/            # Generated forecasts
-│   └── covariates/             # External covariate data
+│   └── models/                 # Local Chronos model storage
+│       ├── chronos-bolt-tiny/
+│       ├── chronos-bolt-mini/
+│       ├── chronos-bolt-small/
+│       ├── chronos-bolt-base/
+│       └── custom/             # Custom trained models
 ├── src/
-│   ├── data_loader.py          # Enhanced data loading with covariates
+│   ├── data_loader.py          # Enhanced data loading
 │   ├── chronos_predictor.py    # Advanced Chronos model wrapper
-│   ├── visualization.py        # Enhanced plotting utilities
+│   ├── chronos_finetuner.py    # Chronos fine-tuning utilities
 │   ├── model_comparison.py     # Model evaluation and comparison
-│   └── hyperparameter_tuning.py # Automated hyperparameter optimization
+│   ├── model_manager.py        # Model version management
+│   └── visualization.py        # Enhanced plotting utilities
 ├── config/
 │   ├── settings.yaml           # Base configuration
 │   ├── fine_tuning.yaml        # Fine-tuning specific settings
-│   └── covariates.yaml         # Covariate configuration
-├── models/                     # Saved model artifacts
-│   ├── zero_shot/              # Zero-shot model checkpoints
-│   ├── fine_tuned/             # Fine-tuned model checkpoints
-│   └── ensemble/               # Ensemble model configurations
-└── experiments/                # Experiment tracking and results
-    ├── logs/                   # Training logs
-    ├── metrics/                # Performance metrics
-    └── plots/                  # Experiment visualizations
+│   └── custom_models.yaml      # Custom model configuration
+├── experiments/                # Experiment tracking and results
+│   ├── logs/                   # Training logs
+│   ├── metrics/                # Performance metrics
+│   └── plots/                  # Experiment visualizations
+└── custom_models/              # Custom trained model storage
+    ├── my_custom_model_v1/
+    └── my_custom_model_v2/
 ```
 
 ## Implementation Components
 
-### 1. Enhanced Data Loader with Covariates
+### 1. Enhanced Data Loader
 
 **File: `src/data_loader.py` (Extended)**
 
@@ -49,265 +54,293 @@ chronos-raw/
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Union, Optional, List, Dict
-from autogluon.timeseries import TimeSeriesDataFrame
-import tomli
+from typing import Union, Optional, List, Dict, Tuple
+import yaml
 
 class EnhancedTimeSeriesDataLoader(TimeSeriesDataLoader):
-    """Extended data loader with covariate support."""
+    """Extended data loader with advanced preprocessing for fine-tuning."""
     
-    def __init__(self, config_path: str = "config/settings.toml"):
-        super().__init__(config_path)
-        
-        # Load covariate configuration
-        covariate_config_path = "config/covariates.toml"
-        if Path(covariate_config_path).exists():
-            with open(covariate_config_path, 'rb') as file:
-                self.covariate_config = tomli.load(file)
-        else:
-            self.covariate_config = {}
-    
-    def load_with_covariates(self, 
-                           data_file: Union[str, Path],
-                           covariate_files: Optional[Dict[str, str]] = None) -> TimeSeriesDataFrame:
-        """Load time series data with covariate information."""
-        
-        # Load main time series data
-        main_data = self.load_from_csv(data_file)
-        
-        if covariate_files is None:
-            covariate_files = self.covariate_config.get('covariate_files', {})
-        
-        # Load and merge covariate data
-        for covariate_name, file_path in covariate_files.items():
-            if Path(file_path).exists():
-                covariate_data = pd.read_csv(file_path)
-                covariate_data['timestamp'] = pd.to_datetime(covariate_data['timestamp'])
-                
-                # Merge covariate data
-                main_data = self._merge_covariate_data(main_data, covariate_data, covariate_name)
-                print(f"Loaded covariate: {covariate_name}")
-            else:
-                print(f"Warning: Covariate file not found: {file_path}")
-        
-        return main_data
-    
-    def _merge_covariate_data(self, 
-                            ts_data: TimeSeriesDataFrame, 
-                            covariate_data: pd.DataFrame,
-                            covariate_name: str) -> TimeSeriesDataFrame:
-        """Merge covariate data with time series data."""
-        # Implementation for merging covariate data
-        # This would handle the complex merging logic for time series with covariates
-        return ts_data
-    
-    def prepare_fine_tuning_data(self, 
-                                data: TimeSeriesDataFrame,
-                                validation_split: float = 0.2) -> tuple:
-        """Prepare data specifically for fine-tuning with train/validation split."""
-        # Split data for fine-tuning
-        train_size = int(len(data) * (1 - validation_split))
-        train_data = data.iloc[:train_size]
-        val_data = data.iloc[train_size:]
-        
-        return train_data, val_data
-```
-
-### 2. Advanced Chronos Predictor
-
-**File: `src/chronos_predictor.py` (Extended)**
-
-```python
-from autogluon.timeseries import TimeSeriesPredictor
-from pathlib import Path
-from typing import Optional, Dict, List, Union
-import tomli
-import json
-from datetime import datetime
-
-class AdvancedChronosPredictor(ChronosPredictor):
-    """Advanced Chronos predictor with fine-tuning and covariate support."""
-    
-    def __init__(self, config_path: str = "config/settings.toml"):
+    def __init__(self, config_path: str = "config/settings.yaml"):
         super().__init__(config_path)
         
         # Load fine-tuning configuration
-        fine_tuning_config_path = "config/fine_tuning.toml"
+        fine_tuning_config_path = "config/fine_tuning.yaml"
         if Path(fine_tuning_config_path).exists():
-            with open(fine_tuning_config_path, 'rb') as file:
-                self.fine_tuning_config = tomli.load(file)
+            with open(fine_tuning_config_path, 'r') as file:
+                self.fine_tuning_config = yaml.safe_load(file)
         else:
             self.fine_tuning_config = self._get_default_fine_tuning_config()
-        
-        self.models_dir = Path("models")
-        self.models_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.experiment_logs = []
     
     def _get_default_fine_tuning_config(self) -> Dict:
         """Default fine-tuning configuration."""
         return {
-            'fine_tune_lr': 1e-4,
-            'fine_tune_steps': 2000,
-            'fine_tune_batch_size': 32,
-            'fine_tune_epochs': 10,
-            'early_stopping_patience': 5
+            'context_length': 512,
+            'prediction_length': 48,
+            'validation_split': 0.2,
+            'test_split': 0.1
         }
     
-    def fit_with_fine_tuning(self, 
-                           train_data,
-                           model_variants: Optional[List[Dict]] = None) -> 'AdvancedChronosPredictor':
-        """Fit multiple Chronos model variants including fine-tuned versions."""
+    def prepare_fine_tuning_data(self, 
+                                data: pd.DataFrame,
+                                context_length: Optional[int] = None,
+                                prediction_length: Optional[int] = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Prepare data specifically for Chronos fine-tuning."""
         
-        if model_variants is None:
-            model_variants = [
-                {
-                    "model_path": self.model_preset,
-                    "ag_args": {"name_suffix": "ZeroShot"}
-                },
-                {
-                    "model_path": self.model_preset,
-                    "fine_tune": True,
-                    "fine_tune_lr": self.fine_tuning_config['fine_tune_lr'],
-                    "fine_tune_steps": self.fine_tuning_config['fine_tune_steps'],
-                    "ag_args": {"name_suffix": "FineTuned"}
-                }
-            ]
+        if context_length is None:
+            context_length = self.fine_tuning_config['context_length']
+        if prediction_length is None:
+            prediction_length = self.fine_tuning_config['prediction_length']
         
-        # Configure hyperparameters
-        hyperparameters = {"Chronos": model_variants}
+        # Convert to numpy array
+        values = data['value'].values.astype(np.float32)
         
-        # Fit predictor with multiple model variants
-        self.predictor = TimeSeriesPredictor(
-            prediction_length=self.prediction_length
-        ).fit(
-            train_data=train_data,
-            hyperparameters=hyperparameters,
-            time_limit=self.fine_tuning_config.get('time_limit', 300),
-            enable_ensemble=False
-        )
+        # Create sliding windows for fine-tuning
+        sequences = []
+        targets = []
         
-        # Log experiment
-        self._log_experiment("fit_with_fine_tuning", {
-            "model_variants": len(model_variants),
-            "fine_tuning_config": self.fine_tuning_config
-        })
+        for i in range(len(values) - context_length - prediction_length + 1):
+            context = values[i:i + context_length]
+            target = values[i + context_length:i + context_length + prediction_length]
+            sequences.append(context)
+            targets.append(target)
         
-        print(f"Fitted {len(model_variants)} Chronos model variants")
-        return self
+        sequences = np.array(sequences)
+        targets = np.array(targets)
+        
+        # Split into train/validation/test
+        val_split = self.fine_tuning_config['validation_split']
+        test_split = self.fine_tuning_config['test_split']
+        
+        n_samples = len(sequences)
+        n_val = int(n_samples * val_split)
+        n_test = int(n_samples * test_split)
+        n_train = n_samples - n_val - n_test
+        
+        train_sequences = sequences[:n_train]
+        train_targets = targets[:n_train]
+        val_sequences = sequences[n_train:n_train + n_val]
+        val_targets = targets[n_train:n_train + n_val]
+        test_sequences = sequences[n_train + n_val:]
+        test_targets = targets[n_train + n_val:]
+        
+        print(f"Fine-tuning data prepared:")
+        print(f"  - Train: {len(train_sequences)} sequences")
+        print(f"  - Validation: {len(val_sequences)} sequences")
+        print(f"  - Test: {len(test_sequences)} sequences")
+        
+        return (train_sequences, train_targets), (val_sequences, val_targets), (test_sequences, test_targets)
     
-    def fit_with_covariates(self, 
-                          train_data,
-                          known_covariates_names: List[str],
-                          target: str = "value") -> 'AdvancedChronosPredictor':
-        """Fit Chronos model with covariate regressor."""
+    def prepare_custom_model_data(self, 
+                                 data: pd.DataFrame,
+                                 model_config: Dict) -> Dict:
+        """Prepare data for custom model integration."""
         
-        model_variants = [
-            # Zero-shot model without covariates
-            {
-                "model_path": self.model_preset,
-                "ag_args": {"name_suffix": "ZeroShot"}
-            },
-            # Chronos with covariate regressor
-            {
-                "model_path": self.model_preset,
-                "covariate_regressor": "CAT",  # CatBoost regressor
-                "target_scaler": "standard",
-                "ag_args": {"name_suffix": "WithRegressor"}
+        # Extract model-specific requirements
+        context_length = model_config.get('context_length', 512)
+        prediction_length = model_config.get('prediction_length', 48)
+        
+        # Prepare data according to custom model requirements
+        values = data['value'].values.astype(np.float32)
+        
+        # Create context and target arrays
+        context, target = self.prepare_for_chronos(data, prediction_length)
+        
+        return {
+            'context': context,
+            'target': target,
+            'context_length': context_length,
+            'prediction_length': prediction_length,
+            'model_config': model_config
+        }
+```
+
+### 2. Chronos Fine-tuning Module
+
+**File: `src/chronos_finetuner.py`**
+
+```python
+from chronos import ChronosPipeline
+from pathlib import Path
+from typing import Optional, Dict, List, Tuple
+import yaml
+import numpy as np
+import torch
+import json
+from datetime import datetime
+
+class ChronosFineTuner:
+    """Fine-tuning utilities for Chronos models."""
+    
+    def __init__(self, config_path: str = "config/fine_tuning.yaml"):
+        with open(config_path, 'r') as file:
+            self.config = yaml.safe_load(file)
+        
+        self.models_dir = Path("custom_models")
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.experiment_logs = []
+    
+    def fine_tune_model(self, 
+                       base_model_name: str,
+                       train_data: Tuple[np.ndarray, np.ndarray],
+                       val_data: Tuple[np.ndarray, np.ndarray],
+                       model_name: str,
+                       **kwargs) -> ChronosPipeline:
+        """
+        Fine-tune a Chronos model on custom data.
+        
+        RISK: Chronos fine-tuning API may not be publicly available or well-documented.
+        This implementation assumes a fine-tuning interface similar to Hugging Face transformers.
+        """
+        
+        # Load base model
+        base_model = ChronosPipeline.from_pretrained(base_model_name)
+        
+        # Extract training parameters
+        learning_rate = kwargs.get('learning_rate', self.config.get('learning_rate', 1e-4))
+        num_epochs = kwargs.get('num_epochs', self.config.get('num_epochs', 10))
+        batch_size = kwargs.get('batch_size', self.config.get('batch_size', 32))
+        
+        # RISK: The following fine-tuning code is speculative based on typical
+        # transformer fine-tuning patterns. Actual Chronos fine-tuning API may differ.
+        
+        try:
+            # Configure fine-tuning parameters
+            fine_tuning_config = {
+                'learning_rate': learning_rate,
+                'num_epochs': num_epochs,
+                'batch_size': batch_size,
+                'warmup_steps': self.config.get('warmup_steps', 100),
+                'weight_decay': self.config.get('weight_decay', 1e-5),
+                'gradient_clip_norm': self.config.get('gradient_clip_norm', 1.0)
             }
-        ]
-        
-        # Configure predictor with covariates
-        self.predictor = TimeSeriesPredictor(
-            prediction_length=self.prediction_length,
-            target=target,
-            known_covariates_names=known_covariates_names
-        ).fit(
-            train_data,
-            hyperparameters={"Chronos": model_variants},
-            enable_ensemble=False,
-            time_limit=self.fine_tuning_config.get('time_limit', 300)
-        )
-        
-        # Log experiment
-        self._log_experiment("fit_with_covariates", {
-            "known_covariates": known_covariates_names,
-            "target": target
-        })
-        
-        print(f"Fitted Chronos model with covariates: {known_covariates_names}")
-        return self
+            
+            # RISK: This assumes Chronos has a fine_tune method similar to transformers
+            # The actual API may be different or may not exist
+            if hasattr(base_model, 'fine_tune'):
+                fine_tuned_model = base_model.fine_tune(
+                    train_data=train_data,
+                    val_data=val_data,
+                    **fine_tuning_config
+                )
+            else:
+                # Fallback: Use standard training approach
+                print("WARNING: Direct fine-tuning not available, using base model")
+                fine_tuned_model = base_model
+            
+            # Save fine-tuned model
+            model_path = self.models_dir / model_name
+            fine_tuned_model.save_pretrained(str(model_path))
+            
+            # Log experiment
+            self._log_experiment("fine_tune", {
+                "base_model": base_model_name,
+                "model_name": model_name,
+                "config": fine_tuning_config,
+                "train_samples": len(train_data[0]),
+                "val_samples": len(val_data[0])
+            })
+            
+            print(f"Fine-tuned model saved to: {model_path}")
+            return fine_tuned_model
+            
+        except Exception as e:
+            print(f"Fine-tuning failed: {e}")
+            print("Falling back to base model")
+            return base_model
     
     def hyperparameter_search(self, 
-                            train_data,
-                            val_data,
+                            base_model_name: str,
+                            train_data: Tuple[np.ndarray, np.ndarray],
+                            val_data: Tuple[np.ndarray, np.ndarray],
                             search_space: Optional[Dict] = None) -> Dict:
-        """Perform hyperparameter search for optimal model configuration."""
+        """
+        Perform hyperparameter search for optimal fine-tuning configuration.
+        
+        RISK: This assumes Chronos supports hyperparameter search or we can implement
+        it manually. The actual implementation may require custom search logic.
+        """
         
         if search_space is None:
             search_space = {
-                "fine_tune_lr": [1e-5, 1e-4, 1e-3],
-                "fine_tune_steps": [1000, 2000, 5000],
-                "fine_tune_batch_size": [16, 32, 64]
+                'learning_rate': [1e-5, 1e-4, 1e-3],
+                'num_epochs': [5, 10, 20],
+                'batch_size': [16, 32, 64]
             }
         
         best_config = None
         best_score = float('inf')
+        results = []
         
         # Grid search implementation
-        for lr in search_space["fine_tune_lr"]:
-            for steps in search_space["fine_tune_steps"]:
-                for batch_size in search_space["fine_tune_batch_size"]:
+        for lr in search_space['learning_rate']:
+            for epochs in search_space['num_epochs']:
+                for batch_size in search_space['batch_size']:
                     
                     config = {
-                        "fine_tune_lr": lr,
-                        "fine_tune_steps": steps,
-                        "fine_tune_batch_size": batch_size
+                        'learning_rate': lr,
+                        'num_epochs': epochs,
+                        'batch_size': batch_size
                     }
                     
-                    # Fit model with current configuration
-                    model_variants = [{
-                        "model_path": self.model_preset,
-                        "fine_tune": True,
-                        **config,
-                        "ag_args": {"name_suffix": f"Tuned_{lr}_{steps}_{batch_size}"}
-                    }]
-                    
-                    temp_predictor = TimeSeriesPredictor(
-                        prediction_length=self.prediction_length
-                    ).fit(
-                        train_data,
-                        hyperparameters={"Chronos": model_variants},
-                        time_limit=60
-                    )
-                    
-                    # Evaluate on validation data
-                    predictions = temp_predictor.predict(val_data)
-                    score = self._calculate_validation_score(val_data, predictions)
-                    
-                    if score < best_score:
-                        best_score = score
-                        best_config = config
-                    
-                    print(f"Config: {config}, Score: {score:.4f}")
+                    try:
+                        # Fine-tune with current configuration
+                        model_name = f"search_{lr}_{epochs}_{batch_size}"
+                        model = self.fine_tune_model(
+                            base_model_name, train_data, val_data, model_name, **config
+                        )
+                        
+                        # Evaluate on validation data
+                        score = self._evaluate_model(model, val_data)
+                        
+                        results.append({
+                            'config': config,
+                            'score': score,
+                            'model_name': model_name
+                        })
+                        
+                        if score < best_score:
+                            best_score = score
+                            best_config = config
+                        
+                        print(f"Config: {config}, Score: {score:.4f}")
+                        
+                    except Exception as e:
+                        print(f"Failed config {config}: {e}")
+                        continue
         
         print(f"Best configuration: {best_config}, Score: {best_score:.4f}")
+        
+        # Save search results
+        results_file = self.models_dir / "hyperparameter_search_results.json"
+        with open(results_file, 'w') as f:
+            json.dump(results, f, indent=2)
+        
         return best_config
     
-    def _calculate_validation_score(self, val_data, predictions) -> float:
-        """Calculate validation score for hyperparameter tuning."""
-        # Implementation would calculate appropriate metric (e.g., WQL, MAE)
-        # For now, return a placeholder
-        return 0.0
+    def _evaluate_model(self, model: ChronosPipeline, val_data: Tuple[np.ndarray, np.ndarray]) -> float:
+        """Evaluate model performance on validation data."""
+        
+        val_context, val_target = val_data
+        
+        try:
+            # Generate predictions
+            predictions = model.predict(val_context, prediction_length=len(val_target))
+            
+            # Calculate MSE as evaluation metric
+            mse = np.mean((predictions - val_target) ** 2)
+            return float(mse)
+            
+        except Exception as e:
+            print(f"Evaluation failed: {e}")
+            return float('inf')
     
     def _log_experiment(self, experiment_type: str, parameters: Dict) -> None:
         """Log experiment details for tracking."""
         experiment_log = {
             "timestamp": datetime.now().isoformat(),
             "experiment_type": experiment_type,
-            "parameters": parameters,
-            "model_preset": self.model_preset,
-            "prediction_length": self.prediction_length
+            "parameters": parameters
         }
         
         self.experiment_logs.append(experiment_log)
@@ -319,28 +352,156 @@ class AdvancedChronosPredictor(ChronosPredictor):
         log_file = logs_dir / f"experiment_{len(self.experiment_logs)}.json"
         with open(log_file, 'w') as f:
             json.dump(experiment_log, f, indent=2)
-    
-    def save_model(self, model_name: str) -> None:
-        """Save the trained model for later use."""
-        if self.predictor is None:
-            raise ValueError("No model to save")
-        
-        model_dir = self.models_dir / model_name
-        model_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Save model artifacts
-        self.predictor.save(model_dir)
-        print(f"Model saved to: {model_dir}")
-    
-    def load_model(self, model_path: Union[str, Path]) -> 'AdvancedChronosPredictor':
-        """Load a previously saved model."""
-        model_path = Path(model_path)
-        self.predictor = TimeSeriesPredictor.load(model_path)
-        print(f"Model loaded from: {model_path}")
-        return self
 ```
 
-### 3. Model Comparison and Evaluation
+### 3. Enhanced Chronos Predictor
+
+**File: `src/chronos_predictor.py` (Extended)**
+
+```python
+from chronos import ChronosPipeline
+from pathlib import Path
+from typing import Optional, Union, List, Dict
+import yaml
+import numpy as np
+import pandas as pd
+
+class AdvancedChronosPredictor(ChronosPredictor):
+    """Advanced Chronos predictor with custom model support."""
+    
+    def __init__(self, config_path: str = "config/settings.yaml"):
+        super().__init__(config_path)
+        
+        # Load custom model configuration
+        custom_models_config_path = "config/custom_models.yaml"
+        if Path(custom_models_config_path).exists():
+            with open(custom_models_config_path, 'r') as file:
+                self.custom_models_config = yaml.safe_load(file)
+        else:
+            self.custom_models_config = {}
+        
+        self.custom_models_dir = Path("custom_models")
+        self.custom_models_dir.mkdir(parents=True, exist_ok=True)
+    
+    def load_custom_model(self, model_name: str) -> 'AdvancedChronosPredictor':
+        """
+        Load a custom trained Chronos model.
+        
+        RISK: This assumes custom models are saved in a compatible format.
+        The actual model format may require custom loading logic.
+        """
+        
+        model_path = self.custom_models_dir / model_name
+        
+        if not model_path.exists():
+            raise FileNotFoundError(f"Custom model not found: {model_path}")
+        
+        try:
+            # Load custom model
+            self.model = ChronosPipeline.from_pretrained(str(model_path))
+            print(f"Custom model loaded from: {model_path}")
+            return self
+        except Exception as e:
+            raise ValueError(f"Error loading custom model: {e}")
+    
+    def compare_models(self, 
+                      context: np.ndarray,
+                      target: Optional[np.ndarray] = None,
+                      model_names: List[str] = None) -> Dict:
+        """
+        Compare multiple models on the same data.
+        
+        RISK: This assumes we can load and compare multiple models.
+        Memory constraints may limit the number of models that can be loaded simultaneously.
+        """
+        
+        if model_names is None:
+            model_names = self.custom_models_config.get('available_models', [])
+        
+        results = {}
+        
+        for model_name in model_names:
+            try:
+                # Load model
+                if model_name in self.custom_models_config.get('custom_models', {}):
+                    model = ChronosPipeline.from_pretrained(
+                        str(self.custom_models_dir / model_name)
+                    )
+                else:
+                    model = ChronosPipeline.from_pretrained(model_name)
+                
+                # Generate predictions
+                predictions = model.predict(context, prediction_length=self.prediction_length)
+                
+                # Calculate metrics
+                metrics = {
+                    'predictions': predictions.tolist(),
+                    'prediction_length': len(predictions)
+                }
+                
+                if target is not None:
+                    mse = np.mean((predictions - target) ** 2)
+                    mae = np.mean(np.abs(predictions - target))
+                    mape = np.mean(np.abs((target - predictions) / target)) * 100
+                    
+                    metrics.update({
+                        'mse': float(mse),
+                        'mae': float(mae),
+                        'mape': float(mape)
+                    })
+                
+                results[model_name] = metrics
+                print(f"Model {model_name}: MSE={metrics.get('mse', 'N/A'):.4f}")
+                
+            except Exception as e:
+                print(f"Failed to evaluate model {model_name}: {e}")
+                results[model_name] = {'error': str(e)}
+        
+        return results
+    
+    def ensemble_predict(self, 
+                        context: np.ndarray,
+                        model_names: List[str],
+                        method: str = 'mean') -> np.ndarray:
+        """
+        Generate ensemble predictions from multiple models.
+        
+        RISK: This assumes we can load multiple models simultaneously.
+        Memory and computational constraints may limit feasibility.
+        """
+        
+        predictions = []
+        
+        for model_name in model_names:
+            try:
+                if model_name in self.custom_models_config.get('custom_models', {}):
+                    model = ChronosPipeline.from_pretrained(
+                        str(self.custom_models_dir / model_name)
+                    )
+                else:
+                    model = ChronosPipeline.from_pretrained(model_name)
+                
+                pred = model.predict(context, prediction_length=self.prediction_length)
+                predictions.append(pred)
+                
+            except Exception as e:
+                print(f"Failed to load model {model_name}: {e}")
+                continue
+        
+        if not predictions:
+            raise ValueError("No models successfully loaded for ensemble")
+        
+        predictions = np.array(predictions)
+        
+        if method == 'mean':
+            return np.mean(predictions, axis=0)
+        elif method == 'median':
+            return np.median(predictions, axis=0)
+        else:
+            raise ValueError(f"Unknown ensemble method: {method}")
+```
+
+### 4. Model Comparison Module
 
 **File: `src/model_comparison.py`**
 
@@ -362,24 +523,37 @@ class ModelComparator:
         self.comparison_results = []
     
     def compare_models(self, 
-                      test_data,
+                      context: np.ndarray,
+                      target: np.ndarray,
                       predictors: Dict[str, 'AdvancedChronosPredictor']) -> pd.DataFrame:
         """Compare multiple model configurations on test data."""
         
         comparison_results = []
         
         for model_name, predictor in predictors.items():
-            # Generate predictions
-            predictions = predictor.predict(test_data)
-            
-            # Calculate metrics
-            metrics = self._calculate_metrics(test_data, predictions)
-            
-            # Add model information
-            metrics['model_name'] = model_name
-            metrics['model_type'] = self._get_model_type(model_name)
-            
-            comparison_results.append(metrics)
+            try:
+                # Generate predictions
+                predictions = predictor.predict(context)
+                
+                # Calculate metrics
+                metrics = self._calculate_metrics(target, predictions.predictions)
+                
+                # Add model information
+                metrics['model_name'] = model_name
+                metrics['model_type'] = self._get_model_type(model_name)
+                
+                comparison_results.append(metrics)
+                
+            except Exception as e:
+                print(f"Failed to evaluate model {model_name}: {e}")
+                comparison_results.append({
+                    'model_name': model_name,
+                    'model_type': 'Error',
+                    'mse': float('inf'),
+                    'mae': float('inf'),
+                    'mape': float('inf'),
+                    'error': str(e)
+                })
         
         # Create comparison DataFrame
         comparison_df = pd.DataFrame(comparison_results)
@@ -391,56 +565,73 @@ class ModelComparator:
         print(f"Model comparison results saved to: {results_file}")
         return comparison_df
     
-    def _calculate_metrics(self, test_data, predictions) -> Dict:
+    def _calculate_metrics(self, target: np.ndarray, predictions: np.ndarray) -> Dict:
         """Calculate comprehensive evaluation metrics."""
-        # Implementation would calculate various time series metrics
-        # such as WQL, MAE, RMSE, MAPE, etc.
         
-        metrics = {
-            'wql_score': 0.0,  # Placeholder
-            'mae': 0.0,
-            'rmse': 0.0,
-            'mape': 0.0
+        # Ensure arrays are the same length
+        min_length = min(len(target), len(predictions))
+        target = target[:min_length]
+        predictions = predictions[:min_length]
+        
+        mse = np.mean((target - predictions) ** 2)
+        mae = np.mean(np.abs(target - predictions))
+        mape = np.mean(np.abs((target - predictions) / target)) * 100
+        rmse = np.sqrt(mse)
+        
+        return {
+            'mse': float(mse),
+            'mae': float(mae),
+            'mape': float(mape),
+            'rmse': float(rmse)
         }
-        
-        return metrics
     
     def _get_model_type(self, model_name: str) -> str:
         """Determine model type from name."""
-        if 'ZeroShot' in model_name:
-            return 'Zero-shot'
-        elif 'FineTuned' in model_name:
+        if 'custom' in model_name.lower():
+            return 'Custom'
+        elif 'fine_tuned' in model_name.lower():
             return 'Fine-tuned'
-        elif 'WithRegressor' in model_name:
-            return 'With Covariates'
+        elif 'ensemble' in model_name.lower():
+            return 'Ensemble'
         else:
-            return 'Unknown'
+            return 'Base'
     
     def plot_comparison(self, 
                        comparison_df: pd.DataFrame,
-                       metric: str = 'wql_score',
+                       metric: str = 'mse',
                        save_path: Optional[str] = None) -> None:
         """Plot model comparison results."""
         
         fig, ax = plt.subplots(figsize=(12, 8))
         
-        # Create grouped bar plot
-        model_types = comparison_df['model_type'].unique()
-        x_pos = np.arange(len(model_types))
+        # Filter out error models
+        valid_df = comparison_df[comparison_df[metric] != float('inf')]
         
-        for i, model_type in enumerate(model_types):
-            type_data = comparison_df[comparison_df['model_type'] == model_type]
-            ax.bar(x_pos[i], type_data[metric].mean(), 
-                  label=model_type, alpha=0.7)
+        if valid_df.empty:
+            ax.text(0.5, 0.5, 'No valid models to compare', 
+                   ha='center', va='center', transform=ax.transAxes)
+            ax.set_title('Model Comparison - No Valid Results')
+        else:
+            # Create bar plot
+            bars = ax.bar(valid_df['model_name'], valid_df[metric], 
+                         color='skyblue', alpha=0.7)
+            
+            # Add value labels on bars
+            for bar, value in zip(bars, valid_df[metric]):
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., height,
+                       f'{value:.4f}', ha='center', va='bottom')
+            
+            ax.set_xlabel('Model Name')
+            ax.set_ylabel(metric.upper())
+            ax.set_title(f'Model Performance Comparison - {metric.upper()}')
+            plt.xticks(rotation=45)
         
-        ax.set_xlabel('Model Type')
-        ax.set_ylabel(metric.upper())
-        ax.set_title('Model Performance Comparison')
-        ax.set_xticks(x_pos)
-        ax.set_xticklabels(model_types)
-        ax.legend()
+        plt.tight_layout()
         
         if save_path:
+            save_path = Path(save_path)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
             print(f"Comparison plot saved to: {save_path}")
         
@@ -449,20 +640,30 @@ class ModelComparator:
     def generate_report(self, comparison_df: pd.DataFrame) -> str:
         """Generate a comprehensive model comparison report."""
         
-        report = f"""
+        # Filter out error models
+        valid_df = comparison_df[comparison_df['mse'] != float('inf')]
+        
+        if valid_df.empty:
+            report = "# Model Comparison Report\n\nNo valid models to compare."
+        else:
+            best_model = valid_df.loc[valid_df['mse'].idxmin()]
+            
+            report = f"""
 # Model Comparison Report
 
 ## Summary
-Total models compared: {len(comparison_df)}
-Best performing model: {comparison_df.loc[comparison_df['wql_score'].idxmax(), 'model_name']}
+Total models compared: {len(valid_df)}
+Best performing model: {best_model['model_name']}
+Best MSE: {best_model['mse']:.4f}
 
 ## Detailed Results
-{comparison_df.to_string(index=False)}
+{valid_df[['model_name', 'model_type', 'mse', 'mae', 'mape']].to_string(index=False)}
 
 ## Recommendations
-- Zero-shot models: Best for quick prototyping
+- Base models: Best for quick prototyping
 - Fine-tuned models: Best for production when training time is available
-- Covariate models: Best when external features are available and relevant
+- Custom models: Best when you have domain-specific data
+- Ensemble models: Best for maximum accuracy when computational resources allow
 """
         
         # Save report
@@ -474,124 +675,87 @@ Best performing model: {comparison_df.loc[comparison_df['wql_score'].idxmax(), '
         return report
 ```
 
-### 4. Configuration Files
+### 5. Configuration Files
 
-**File: `config/fine_tuning.toml`**
-```toml
+**File: `config/fine_tuning.yaml`**
+```yaml
 # Fine-tuning configuration
-[fine_tuning]
-learning_rate = 1e-4
-steps = 2000
-batch_size = 32
-epochs = 10
+learning_rate: 1e-4
+num_epochs: 10
+batch_size: 32
+warmup_steps: 100
+weight_decay: 1e-5
+gradient_clip_norm: 1.0
 
-[fine_tuning.early_stopping]
-patience = 5
-min_delta = 0.001
+# Data preparation
+context_length: 512
+prediction_length: 48
+validation_split: 0.2
+test_split: 0.1
 
-# Advanced options
-weight_decay = 1e-5
-warmup_steps = 100
-gradient_clip_norm = 1.0
+# Early stopping
+early_stopping:
+  patience: 5
+  min_delta: 0.001
 
-# Model variants to train
-[[model_variants]]
-name = "zero_shot"
-[model_variants.config]
-model_path = "bolt_small"
-[model_variants.config.ag_args]
-name_suffix = "ZeroShot"
-
-[[model_variants]]
-name = "fine_tuned"
-[model_variants.config]
-model_path = "bolt_small"
-fine_tune = true
-fine_tune_lr = 1e-4
-fine_tune_steps = 2000
-[model_variants.config.ag_args]
-name_suffix = "FineTuned"
-
-[[model_variants]]
-name = "with_covariates"
-[model_variants.config]
-model_path = "bolt_small"
-covariate_regressor = "CAT"
-target_scaler = "standard"
-[model_variants.config.ag_args]
-name_suffix = "WithRegressor"
-
-# Hyperparameter search space
-[hyperparameter_search]
-fine_tune_lr = [1e-5, 1e-4, 1e-3]
-fine_tune_steps = [1000, 2000, 5000]
-fine_tune_batch_size = [16, 32, 64]
-
-# Search strategy
-search_strategy = "grid"  # or "random", "bayesian"
-max_trials = 20
-time_limit = 3600  # seconds
+# Hyperparameter search
+hyperparameter_search:
+  learning_rate: [1e-5, 1e-4, 1e-3]
+  num_epochs: [5, 10, 20]
+  batch_size: [16, 32, 64]
+  max_trials: 20
+  time_limit: 3600  # seconds
 ```
 
-**File: `config/covariates.toml`**
-```toml
-# Covariate configuration
-[covariates]
-# Known covariates (available at prediction time)
-known_covariates = [
-    "scaled_price",
-    "promotion_email", 
-    "promotion_homepage",
-    "holiday_flag",
-    "seasonal_indicator"
-]
+**File: `config/custom_models.yaml`**
+```yaml
+# Custom model configuration
+available_models:
+  - "amazon/chronos-bolt-tiny"
+  - "amazon/chronos-bolt-mini"
+  - "amazon/chronos-bolt-small"
+  - "amazon/chronos-bolt-base"
 
-# Static features (constant per time series)
-static_features = [
-    "store_id",
-    "category",
-    "region"
-]
+# Custom trained models
+custom_models:
+  my_custom_model_v1:
+    path: "custom_models/my_custom_model_v1"
+    description: "Custom model trained on domain-specific data"
+    context_length: 512
+    prediction_length: 48
+  
+  my_custom_model_v2:
+    path: "custom_models/my_custom_model_v2"
+    description: "Fine-tuned model with hyperparameter optimization"
+    context_length: 1024
+    prediction_length: 96
 
-# File paths for covariate data
-[covariates.covariate_files]
-price_data = "data/covariates/price_data.csv"
-promotion_data = "data/covariates/promotion_data.csv"
-holiday_data = "data/covariates/holiday_data.csv"
-seasonal_data = "data/covariates/seasonal_data.csv"
-
-# Covariate preprocessing
-[preprocessing.scaling]
-method = "standard"  # or "minmax", "robust"
-features = ["scaled_price"]
-
-[preprocessing.encoding]
-categorical_features = ["store_id", "category", "region"]
-method = "onehot"  # or "label", "target"
-
-[preprocessing.imputation]
-method = "forward_fill"  # or "backward_fill", "interpolate", "mean"
-features = ["promotion_email", "promotion_homepage"]
+# Model comparison settings
+comparison:
+  metrics: ["mse", "mae", "mape", "rmse"]
+  primary_metric: "mse"
+  ensemble_methods: ["mean", "median"]
 ```
 
-### 5. Advanced Main Script
+### 6. Advanced Main Script
 
 **File: `advanced_main.py`**
 ```python
 #!/usr/bin/env python3
 """
-Advanced Chronos implementation with fine-tuning and covariate support.
+Advanced Chronos implementation with fine-tuning and custom model support.
 """
 
 from src.data_loader import EnhancedTimeSeriesDataLoader
 from src.chronos_predictor import AdvancedChronosPredictor
+from src.chronos_finetuner import ChronosFineTuner
 from src.model_comparison import ModelComparator
 from src.visualization import TimeSeriesVisualizer
 from pathlib import Path
-import tomli
+import yaml
 
 def main():
-    """Advanced implementation with multiple model variants."""
+    """Advanced implementation with fine-tuning and custom models."""
     print("Advanced Chronos Implementation")
     print("=" * 50)
     
@@ -599,62 +763,101 @@ def main():
     data_loader = EnhancedTimeSeriesDataLoader()
     visualizer = TimeSeriesVisualizer()
     comparator = ModelComparator()
+    finetuner = ChronosFineTuner()
     
-    # Load data with covariates
-    data_file = "data/raw/your_timeseries_data.csv"
-    covariate_files = {
-        "price_data": "data/covariates/price_data.csv",
-        "promotion_data": "data/covariates/promotion_data.csv"
-    }
+    # Load data
+    data_file = "data/raw/sample_timeseries_data.csv"
     
-    print("Loading time series data with covariates...")
-    data = data_loader.load_with_covariates(data_file, covariate_files)
+    if not Path(data_file).exists():
+        print(f"Data file not found: {data_file}")
+        return
     
-    # Prepare data splits
-    train_data, val_data = data_loader.prepare_fine_tuning_data(data)
-    _, test_data = data_loader.train_test_split(data, 48)
+    print("Loading time series data...")
+    data = data_loader.load_from_csv(data_file)
+    data_info = data_loader.get_data_info(data)
+    print(f"Data loaded: {data_info['total_records']} records")
+    
+    # Prepare data for fine-tuning
+    print("\nPreparing data for fine-tuning...")
+    train_data, val_data, test_data = data_loader.prepare_fine_tuning_data(data)
     
     # Initialize predictors for different approaches
     predictors = {}
     
-    # 1. Zero-shot and Fine-tuned models
-    print("Training zero-shot and fine-tuned models...")
-    predictor_ft = AdvancedChronosPredictor()
-    predictor_ft.fit_with_fine_tuning(train_data)
-    predictors['zero_shot_fine_tuned'] = predictor_ft
+    # 1. Base model
+    print("\nLoading base model...")
+    base_predictor = AdvancedChronosPredictor()
+    base_predictor.load_model()
+    predictors['base_model'] = base_predictor
     
-    # 2. Model with covariates
-    print("Training model with covariates...")
-    predictor_cov = AdvancedChronosPredictor()
-    known_covariates = ["scaled_price", "promotion_email", "promotion_homepage"]
-    predictor_cov.fit_with_covariates(train_data, known_covariates)
-    predictors['with_covariates'] = predictor_cov
+    # 2. Fine-tuned model
+    print("\nFine-tuning model...")
+    try:
+        fine_tuned_model = finetuner.fine_tune_model(
+            base_model_name="amazon/chronos-bolt-base",
+            train_data=train_data,
+            val_data=val_data,
+            model_name="fine_tuned_model"
+        )
+        
+        fine_tuned_predictor = AdvancedChronosPredictor()
+        fine_tuned_predictor.model = fine_tuned_model
+        predictors['fine_tuned'] = fine_tuned_predictor
+        
+    except Exception as e:
+        print(f"Fine-tuning failed: {e}")
+        print("Continuing with base model only")
     
     # 3. Hyperparameter optimization
-    print("Performing hyperparameter search...")
-    predictor_hp = AdvancedChronosPredictor()
-    best_config = predictor_hp.hyperparameter_search(train_data, val_data)
+    print("\nPerforming hyperparameter search...")
+    try:
+        best_config = finetuner.hyperparameter_search(
+            base_model_name="amazon/chronos-bolt-base",
+            train_data=train_data,
+            val_data=val_data
+        )
+        
+        # Train with best configuration
+        optimized_model = finetuner.fine_tune_model(
+            base_model_name="amazon/chronos-bolt-base",
+            train_data=train_data,
+            val_data=val_data,
+            model_name="optimized_model",
+            **best_config
+        )
+        
+        optimized_predictor = AdvancedChronosPredictor()
+        optimized_predictor.model = optimized_model
+        predictors['optimized'] = optimized_predictor
+        
+    except Exception as e:
+        print(f"Hyperparameter optimization failed: {e}")
     
-    # Train with best configuration
-    model_variants = [{
-        "model_path": "bolt_small",
-        "fine_tune": True,
-        **best_config,
-        "ag_args": {"name_suffix": "Optimized"}
-    }]
-    
-    predictor_hp.predictor = AdvancedChronosPredictor().fit(
-        train_data,
-        hyperparameters={"Chronos": model_variants}
-    )
-    predictors['hyperparameter_optimized'] = predictor_hp
+    # 4. Custom model (if available)
+    print("\nLoading custom models...")
+    try:
+        custom_predictor = AdvancedChronosPredictor()
+        custom_predictor.load_custom_model("my_custom_model_v1")
+        predictors['custom'] = custom_predictor
+    except Exception as e:
+        print(f"Custom model loading failed: {e}")
     
     # Compare all models
-    print("Comparing model performance...")
-    comparison_df = comparator.compare_models(test_data, predictors)
+    print("\nComparing model performance...")
+    test_context, test_target = test_data
+    
+    # Prepare context for prediction (use first sequence)
+    context = test_context[0] if len(test_context) > 0 else data['value'].values[-512:]
+    target = test_target[0] if len(test_target) > 0 else None
+    
+    comparison_df = comparator.compare_models(
+        context=context,
+        target=target,
+        predictors=predictors
+    )
     
     # Generate visualizations
-    print("Creating comparison visualizations...")
+    print("\nCreating comparison visualizations...")
     comparator.plot_comparison(
         comparison_df,
         save_path="experiments/plots/model_comparison.png"
@@ -664,60 +867,113 @@ def main():
     report = comparator.generate_report(comparison_df)
     print(report)
     
-    # Save models
-    for name, predictor in predictors.items():
-        predictor.save_model(f"chronos_{name}")
-    
-    print("Advanced implementation complete!")
+    print("\nAdvanced implementation complete!")
 
 if __name__ == "__main__":
     main()
 ```
 
+## Key Risks and Limitations
+
+### **High Risk Areas (No Prior Art)**
+
+1. **Chronos Fine-tuning API**
+   - **Risk**: Chronos may not have a public fine-tuning API
+   - **Impact**: Fine-tuning functionality may not work
+   - **Mitigation**: Fall back to base models, implement custom fine-tuning if needed
+
+2. **Custom Model Integration**
+   - **Risk**: Custom model format may not be compatible with ChronosPipeline
+   - **Impact**: Custom models may not load properly
+   - **Mitigation**: Implement custom loading logic, validate model format
+
+3. **Memory Constraints**
+   - **Risk**: Loading multiple models simultaneously may exceed memory limits
+   - **Impact**: Ensemble and comparison features may fail
+   - **Mitigation**: Implement model caching, load models on-demand
+
+### **Medium Risk Areas (Limited Documentation)**
+
+1. **Hyperparameter Search**
+   - **Risk**: Chronos-specific hyperparameters may not be documented
+   - **Impact**: Search may use incorrect parameters
+   - **Mitigation**: Use standard transformer hyperparameters as baseline
+
+2. **Model Evaluation Metrics**
+   - **Risk**: Chronos may have specific evaluation requirements
+   - **Impact**: Metrics may not be meaningful
+   - **Mitigation**: Use standard time series metrics, validate with domain experts
+
+### **Low Risk Areas (Well-Documented)**
+
+1. **Data Preparation**
+   - **Risk**: Low - standard time series preprocessing
+   - **Impact**: Minimal
+   - **Mitigation**: Use established time series preprocessing patterns
+
+2. **Visualization**
+   - **Risk**: Low - standard plotting functionality
+   - **Impact**: Minimal
+   - **Mitigation**: Use matplotlib/seaborn best practices
+
 ## Usage Instructions
 
-### 1. Prepare Covariate Data
+### 1. Prepare Custom Models
 
-Create covariate data files in `data/covariates/`:
+Place your custom trained Chronos models in `custom_models/` directory:
 
-**File: `data/covariates/price_data.csv`**
-```csv
-timestamp,scaled_price
-2020-01-01,1.2
-2020-01-02,1.15
-2020-01-03,1.3
-...
+```
+custom_models/
+├── my_custom_model_v1/
+│   ├── config.json
+│   ├── model.safetensors
+│   └── README.md
+└── my_custom_model_v2/
+    ├── config.json
+    ├── model.safetensors
+    └── README.md
 ```
 
-**File: `data/covariates/promotion_data.csv`**
-```csv
-timestamp,promotion_email,promotion_homepage
-2020-01-01,0,1
-2020-01-02,1,0
-2020-01-03,0,0
-...
+### 2. Configure Custom Models
+
+Update `config/custom_models.yaml` with your model information:
+
+```yaml
+custom_models:
+  my_custom_model_v1:
+    path: "custom_models/my_custom_model_v1"
+    description: "Custom model trained on domain-specific data"
+    context_length: 512
+    prediction_length: 48
 ```
 
-### 2. Run Advanced Implementation
+### 3. Run Advanced Implementation
 
 ```bash
 python advanced_main.py
 ```
 
-### 3. Review Results
+### 4. Review Results
 
 - **Model comparisons**: `experiments/results/model_comparison.csv`
 - **Detailed report**: `experiments/results/comparison_report.md`
-- **Saved models**: `models/chronos_*/`
+- **Fine-tuned models**: `custom_models/`
 - **Visualizations**: `experiments/plots/`
 
 ## Key Features
 
-1. **Multiple Model Variants**: Zero-shot, fine-tuned, and covariate-enhanced models
-2. **Hyperparameter Optimization**: Automated search for optimal configuration
-3. **Comprehensive Evaluation**: Multiple metrics and comparison frameworks
-4. **Experiment Tracking**: Detailed logging and result storage
-5. **Model Persistence**: Save and load trained models
-6. **Advanced Visualization**: Comparative plots and performance analysis
+1. **Fine-tuning Support** - Train Chronos models on custom data (with risk mitigation)
+2. **Custom Model Integration** - Load and use your own trained models
+3. **Hyperparameter Optimization** - Automated search for optimal configuration
+4. **Model Comparison** - Comprehensive evaluation and comparison framework
+5. **Experiment Tracking** - Detailed logging and result storage
+6. **Advanced Visualization** - Comparative plots and performance analysis
 
-This implementation provides a complete framework for advanced time series forecasting with Chronos models, supporting both research and production use cases.
+## Success Criteria
+
+- **Core functionality working** - Fine-tuning, custom model loading, model comparison
+- **Risk mitigation** - Graceful fallbacks when advanced features fail
+- **Production ready** - Robust error handling and logging
+- **Extensible** - Easy to add new models and evaluation metrics
+
+This implementation provides a framework for advanced Chronos usage while clearly identifying and mitigating risks where prior art is limited.

@@ -76,7 +76,7 @@ def main():
             print(f"Warning: Error saving processed data: {e}")
         
         # Fit Chronos model (zero-shot)
-        print(f"\nFitting Chronos model ({predictor.model_preset})...")
+        print(f"\nFitting Chronos model ({predictor.model_type} v{predictor.version})...")
         try:
             predictor.fit(train_data)
             print("Model fitted successfully")

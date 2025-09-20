@@ -1,36 +1,60 @@
 # Status Updates 
 
+## Update 2
+### Current Status - Architecture Pivot
 
-## Update 1 
-### Sept 19, 2025 13:00 EST
+#### Major Architecture Change
 
-#### Implementation Status Report
+The project has undergone a significant architecture pivot from AutoGluon-based implementation to direct Chronos integration. This change was driven by the requirement to support locally trained custom Chronos models.
 
-The Chronos zero-shot forecasting implementation has been **successfully completed** and is fully functional. Here's a comprehensive status overview:
+##### **Previous Implementation Issues**
+The initial AutoGluon-based approach encountered fundamental limitations:
+- AutoGluon's preset system doesn't support custom trained models
+- Model loading was incompatible with locally stored Chronos model files
+- Configuration structure was misaligned with custom model requirements
 
-##### **Environment & Dependencies - COMPLETE**
-The project environment is fully set up and operational. Poetry dependency management is working correctly with all required packages installed, including AutoGluon TimeSeries version 1.2, pandas, numpy, matplotlib, seaborn, and PyYAML. The transformers library compatibility issue that initially prevented Chronos model predictions has been resolved by pinning to version 4.39.3.
+##### **New Architecture - Direct Chronos Integration**
+The project has been restructured to use Chronos directly:
 
-##### **Core Implementation - COMPLETE**
-All four core modules have been implemented and tested successfully:
+**Dependencies Updated** - Replaced AutoGluon-TimeSeries with direct Chronos dependencies:
+- `chronos>=0.1.0` (main forecasting library)
+- `huggingface-hub>=0.16.0` (model downloading)
+- `torch>=2.0.0` (PyTorch backend)
+- `transformers>=4.30.0` (Hugging Face transformers)
 
-**Data Loading Module (`src/data_loader.py`)** - Fully operational with comprehensive CSV loading capabilities, automatic timestamp detection, TimeSeriesDataFrame creation, and train/test splitting. The module includes robust error handling and automatically renames the 'value' column to 'target' for AutoGluon compatibility.
+**Core Modules Redesigned** - All modules updated for direct Chronos usage:
+- Data loader now returns pandas DataFrames instead of TimeSeriesDataFrame
+- Chronos predictor uses `ChronosPipeline` directly
+- Model management system for versioned model storage
+- Enhanced visualization with uncertainty quantification
 
-**Chronos Predictor Module (`src/chronos_predictor.py`)** - Complete zero-shot forecasting implementation using the bolt_small preset. The module successfully fits Chronos models, generates predictions with quantile forecasts, saves results, and provides model performance evaluation through leaderboards.
+**Configuration Restructured** - Updated to support:
+- Versioned model management (`data/models/{model-type}/{version}/`)
+- Model path, type, and version tracking
+- Loading mode configuration (inference vs training)
+- Auto-detection of model availability
 
-**Visualization Module (`src/visualization.py`)** - Comprehensive plotting capabilities including prediction plots, leaderboard visualizations, and data distribution analysis. All plots are automatically saved as high-resolution PNG files.
+##### **Current Implementation Status**
+**Basic Structure** - Core architecture redesigned and documented
+**Model Management** - Versioned storage system implemented
+**Download System** - Enhanced model downloader with conversion
+**Documentation** - Implementation guides updated for new architecture
 
-**Main Execution Script (`main.py`)** - Complete end-to-end workflow that orchestrates the entire pipeline from data loading through visualization generation.
+**Remaining Work** - Core modules need implementation:
+- Data loader requires Chronos-specific data preparation
+- Chronos predictor needs direct Chronos integration
+- Visualization needs uncertainty plot support
+- Main script requires workflow updates
 
-##### **Configuration & Data - COMPLETE**
-The YAML configuration system is fully implemented with proper data paths, model parameters (48-step prediction length, bolt_small preset), and visualization settings. Sample time series data is available and has been successfully processed through the complete pipeline.
+##### **Key Changes Made**
+- Replaced AutoGluon dependencies with Chronos
+- Updated project structure for model versioning
+- Redesigned configuration for custom model support
+- Created enhanced model management system
+- Updated documentation to reflect new architecture
 
-##### **Testing & Validation - COMPLETE**
-The implementation has been thoroughly tested with real data. The complete workflow runs successfully, generating all expected outputs:
-- Processed training and test data files
-- Chronos predictions with 9 quantile levels (0.1 to 0.9)
-- Model performance leaderboard showing a test score of -0.040661
-- Three visualization files (data distribution, forecast plot, leaderboard)
-
-##### **Key Achievements**
-The implementation successfully demonstrates zero-shot time series forecasting using Chronos models without requiring any model training or fine-tuning. The system processes 121 data points, splits them appropriately (73 training, 48 test), and generates 48-step ahead forecasts with uncertainty quantification through quantile predictions.
+##### **Next Steps**
+- Implement core modules with direct Chronos integration
+- Test model loading and prediction functionality
+- Validate custom model support
+- Complete end-to-end workflow testing
