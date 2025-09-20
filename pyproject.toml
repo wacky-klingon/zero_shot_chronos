@@ -27,6 +27,7 @@ black = "^22.0"
 isort = "^5.0"
 flake8 = "^5.0"
 mypy = "^1.0"
+pre-commit = "^3.0"
 
 [tool.poetry.urls]
 Homepage = "https://github.com/chronos-raw/chronos-raw"
@@ -35,7 +36,7 @@ Issues = "https://github.com/chronos-raw/chronos-raw/issues"
 
 [tool.black]
 line-length = 88
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py38', 'py39', 'py310', 'py311']
 
 [tool.isort]
 profile = "black"
