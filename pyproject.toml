@@ -7,8 +7,8 @@ readme = "README.md"
 packages = [{include = "src"}]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.13"
-chronos = ">=0.1.0"
+python = ">=3.9,<3.13"
+chronos-forecasting = {path = "/home/waldo/chronos-forecasting", develop = true}
 torch = ">=2.0.0"
 transformers = ">=4.30.0"
 huggingface_hub = ">=0.16.0"
