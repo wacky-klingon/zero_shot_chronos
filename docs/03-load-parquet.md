@@ -803,7 +803,7 @@ parquet_loader:
 
 ## Conclusion
 
-This design provides a comprehensive framework for loading parquet data as a first-class feature in the Chronos forecasting system. The modular architecture allows for incremental implementation while maintaining compatibility with existing training and prediction pipelines. The focus on performance optimization, data quality, and fail-fast configuration ensures the system can handle production-scale financial time series data efficiently while providing clear error messages when configuration or data is missing.
+This design provides a  framework for loading parquet data in the Chronos forecasting system. The modular architecture allows for incremental implementation while maintaining compatibility with existing training and prediction pipelines.
 
 Key design principles:
 - **Fail-Fast Configuration**: No defaults, explicit configuration required
