@@ -12,7 +12,7 @@ import pandas as pd
 from pathlib import Path
 from typing import Dict, Optional, Any, List
 import logging
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from chronos import ChronosBoltPipeline
 import json
 from datetime import datetime
 
@@ -51,18 +51,16 @@ class ChronosLoader:
             raise
     
     def load_trained_model(self) -> None:
-        """Load the trained model from disk."""
+        """Load the trained Chronos model from disk."""
         try:
-            logger.info(f"Loading trained model from: {self.model_path}")
+            logger.info(f"Loading trained Chronos model from: {self.model_path}")
             
-            # Load model and tokenizer
-            self.model = AutoModelForCausalLM.from_pretrained(
+            # Load ChronosBoltPipeline from the saved trained model
+            self.model = ChronosBoltPipeline.from_pretrained(
                 str(self.model_path),
                 torch_dtype=torch.float32,
                 device_map="cpu"
             )
-            
-            self.tokenizer = AutoTokenizer.from_pretrained(str(self.model_path))
             
             # Load model metadata
             metadata_path = self.model_path / 'model_metadata.json'
@@ -73,57 +71,44 @@ class ChronosLoader:
             else:
                 logger.warning("No model metadata found")
             
-            # Set model to evaluation mode
-            self.model.eval()
-            
-            logger.info("Trained model loaded successfully")
+            logger.info("Trained Chronos model loaded successfully")
             
         except Exception as e:
-            logger.error(f"Failed to load trained model: {e}")
+            logger.error(f"Failed to load trained Chronos model: {e}")
             raise
     
     def predict(self, context: np.ndarray, prediction_length: Optional[int] = None) -> np.ndarray:
-        """Generate predictions using the trained model."""
+        """Generate predictions using the trained Chronos model."""
         if self.model is None:
-            raise ValueError("Model must be loaded before making predictions")
+            raise ValueError("Chronos model must be loaded before making predictions")
         
         if prediction_length is None:
             prediction_length = self.config['inference']['prediction_length']
         
         try:
-            logger.info(f"Generating predictions for context length: {len(context)}")
+            logger.info(f"Generating Chronos predictions for context length: {len(context)}")
             
             # Convert context to tensor
             context_tensor = torch.tensor(context, dtype=torch.float32).unsqueeze(0)
             
-            # Generate predictions
+            # Generate predictions using ChronosBoltPipeline
             with torch.no_grad():
-                # For this simplified implementation, we'll use the model to predict
-                # In a real Chronos implementation, this would be more sophisticated
-                outputs = self.model(context_tensor.long())
+                predictions = self.model.predict(context_tensor, prediction_length=prediction_length)
                 
-                # Extract predictions (simplified)
-                predictions = outputs.logits.squeeze(0).cpu().numpy()
-                
-                # Truncate to prediction length
-                if len(predictions) > prediction_length:
-                    predictions = predictions[:prediction_length]
-                elif len(predictions) < prediction_length:
-                    # Pad with last value if needed
-                    padding = np.full(prediction_length - len(predictions), predictions[-1])
-                    predictions = np.concatenate([predictions, padding])
+                # Extract median prediction (0.5 quantile) - index 4 out of 9 quantiles
+                median_pred = predictions[:, 4, :].squeeze(0).cpu().numpy()
             
-            logger.info(f"Predictions generated: {len(predictions)} steps")
-            return predictions
+            logger.info(f"Chronos predictions generated: {len(median_pred)} steps")
+            return median_pred
             
         except Exception as e:
-            logger.error(f"Failed to generate predictions: {e}")
+            logger.error(f"Failed to generate Chronos predictions: {e}")
             raise
     
     def predict_quantiles(self, context: np.ndarray, 
                          quantiles: Optional[List[float]] = None,
                          prediction_length: Optional[int] = None) -> np.ndarray:
-        """Generate quantile predictions for uncertainty estimation."""
+        """Generate quantile predictions using ChronosBoltPipeline."""
         if quantiles is None:
             quantiles = self.config['inference']['quantiles']
         
@@ -131,40 +116,43 @@ class ChronosLoader:
             prediction_length = self.config['inference']['prediction_length']
         
         try:
-            logger.info(f"Generating quantile predictions: {quantiles}")
+            logger.info(f"Generating Chronos quantile predictions: {quantiles}")
             
-            # Generate multiple predictions for uncertainty estimation
-            predictions = []
-            n_samples = 10  # Number of samples for uncertainty estimation
+            # Convert context to tensor
+            context_tensor = torch.tensor(context, dtype=torch.float32).unsqueeze(0)
             
-            for _ in range(n_samples):
-                pred = self.predict(context, prediction_length)
-                predictions.append(pred)
+            # Generate quantile predictions using ChronosBoltPipeline
+            with torch.no_grad():
+                predictions = self.model.predict(context_tensor, prediction_length=prediction_length)
+                
+                # Extract specific quantiles from Chronos output
+                # ChronosBoltPipeline outputs shape: [batch, quantiles, prediction_length]
+                # We need to map requested quantiles to Chronos quantiles
+                chronos_quantiles = self.model.quantiles  # [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+                
+                quantile_predictions = []
+                for q in quantiles:
+                    # Find closest Chronos quantile
+                    closest_idx = np.argmin(np.abs(np.array(chronos_quantiles) - q))
+                    q_pred = predictions[0, closest_idx, :].cpu().numpy()
+                    quantile_predictions.append(q_pred)
+                
+                quantile_predictions = np.array(quantile_predictions)
             
-            predictions = np.array(predictions)
-            
-            # Calculate quantiles
-            quantile_predictions = []
-            for q in quantiles:
-                q_pred = np.quantile(predictions, q, axis=0)
-                quantile_predictions.append(q_pred)
-            
-            quantile_predictions = np.array(quantile_predictions)
-            
-            logger.info(f"Quantile predictions generated: {quantile_predictions.shape}")
+            logger.info(f"Chronos quantile predictions generated: {quantile_predictions.shape}")
             return quantile_predictions
             
         except Exception as e:
-            logger.error(f"Failed to generate quantile predictions: {e}")
+            logger.error(f"Failed to generate Chronos quantile predictions: {e}")
             raise
     
     def evaluate_on_test_data(self, test_data: np.ndarray) -> Dict[str, float]:
-        """Evaluate the model on test data."""
+        """Evaluate the Chronos model on test data."""
         if self.model is None:
-            raise ValueError("Model must be loaded before evaluation")
+            raise ValueError("Chronos model must be loaded before evaluation")
         
         try:
-            logger.info("Evaluating model on test data...")
+            logger.info("Evaluating Chronos model on test data...")
             
             context_length = self.config['inference']['context_length']
             prediction_length = self.config['inference']['prediction_length']
@@ -184,7 +172,7 @@ class ChronosLoader:
             contexts = np.array(contexts)
             targets = np.array(targets)
             
-            # Generate predictions
+            # Generate predictions using ChronosBoltPipeline
             predictions = []
             for context in contexts:
                 pred = self.predict(context, prediction_length)
@@ -204,7 +192,7 @@ class ChronosLoader:
                 'n_samples': len(contexts)
             }
             
-            logger.info(f"Evaluation completed:")
+            logger.info(f"Chronos model evaluation completed:")
             logger.info(f"  MSE: {mse:.4f}")
             logger.info(f"  MAE: {mae:.4f}")
             logger.info(f"  MAPE: {mape:.2f}%")
@@ -213,7 +201,7 @@ class ChronosLoader:
             return metrics
             
         except Exception as e:
-            logger.error(f"Failed to evaluate model: {e}")
+            logger.error(f"Failed to evaluate Chronos model: {e}")
             raise
     
     def save_predictions(self, predictions: np.ndarray, 
@@ -251,7 +239,7 @@ class ChronosLoader:
             raise
     
     def get_model_info(self) -> Dict[str, Any]:
-        """Get information about the loaded model."""
+        """Get information about the loaded Chronos model."""
         if self.model is None:
             return {'status': 'no_model_loaded'}
         
@@ -259,7 +247,10 @@ class ChronosLoader:
             'status': 'loaded',
             'model_path': str(self.model_path),
             'model_metadata': self.model_metadata,
-            'config': self.config['inference']
+            'config': self.config['inference'],
+            'quantiles': self.model.quantiles,
+            'context_length': self.model.default_context_length,
+            'pipeline_type': 'ChronosBoltPipeline'
         }
     
     def generate_sample_predictions(self) -> None:
