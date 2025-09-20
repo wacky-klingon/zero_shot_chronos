@@ -285,4 +285,5 @@ local/
 
 
 # ignore model directory
+data/model/
 data/models/
