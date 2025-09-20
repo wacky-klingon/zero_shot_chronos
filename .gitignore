@@ -285,8 +285,5 @@ local/
 
 
 # ignore model directory
-data/model/README.md
-data/model/model.safetensors
-data/model/.gitattributes
-data/model/chronos-bolt-base
-data/model/chronos-bolt-base/*
+data/model/
+data/models/

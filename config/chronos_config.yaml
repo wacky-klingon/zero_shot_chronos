@@ -1,0 +1,33 @@
+# Chronos Native Configuration
+chronos:
+  version: "0.1.0"
+  device: "cpu"  # or "cuda" if available
+
+base_model:
+  model_name: "amazon/chronos-bolt-base"
+  output_path: "data/models/base"
+  convert_format: true
+  save_metadata: true
+
+training:
+  epochs: 2
+  batch_size: 32
+  learning_rate: 1e-4
+  validation_split: 0.2
+  dummy_data:
+    n_samples: 100
+    n_series: 10
+    length: 200
+    patterns: ["trend", "seasonal", "noise"]
+
+inference:
+  prediction_length: 24
+  context_length: 100
+  quantiles: [0.1, 0.5, 0.9]
+  output_path: "data/predictions"
+
+paths:
+  data_dir: "data"
+  models_dir: "data/models"
+  predictions_dir: "data/predictions"
+  dummy_data_dir: "data/raw"
