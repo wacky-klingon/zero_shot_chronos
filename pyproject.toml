@@ -10,6 +10,7 @@ packages = [{include = "src"}]
 python = ">=3.9,<3.13"
 autogluon-timeseries = "1.2.0"
 transformers = ">=4.35.0,<4.40.0"
+huggingface_hub = ">=0.20.0"
 pandas = "^2.0.0"
 numpy = "^1.24.0"
 matplotlib = "^3.7.0"
