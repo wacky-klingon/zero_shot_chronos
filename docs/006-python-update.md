@@ -67,8 +67,3 @@ poetry env use python3.10
 1. Verify the version: `python3 --version`
 2. Install Poetry if not already installed: `curl -sSL https://install.python-poetry.org | python3 -`
 3. Run `poetry install` in your project directory
-
-## Recommendation:
-I'd suggest **Option 1 (deadsnakes PPA)** as it's the most straightforward for Ubuntu WSL. Python 3.9 or 3.10 would work well with AutoGluon-TimeSeries.
-
-The key is that AutoGluon-TimeSeries requires Python 3.9+ due to some dependencies that don't support older Python versions.
