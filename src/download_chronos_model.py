@@ -13,13 +13,14 @@ from huggingface_hub import snapshot_download
 import shutil
 
 
-def download_chronos_model():
-    """Download the Chronos-Bolt-Base model from Hugging Face."""
+def download_chronos_model(model_name: str = "amazon/chronos-bolt-base", 
+                          model_type: str = "chronos-bolt-base", 
+                          version: str = "v1.0"):
+    """Download a Chronos model from Hugging Face to versioned directory."""
     
     # Set up paths
-    model_name = "amazon/chronos-bolt-base"
-    model_dir = Path("data/model")
-    temp_dir = Path("data/model_temp")
+    model_dir = Path(f"data/model/{model_type}/{version}")
+    temp_dir = Path(f"data/model_temp_{model_type}_{version}")
     
     # Create model directory if it doesn't exist
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -67,11 +68,32 @@ def download_chronos_model():
 
 def main():
     """Main execution function."""
-    print("Chronos-Bolt-Base Model Downloader")
+    print("Chronos Model Downloader")
     print("=" * 40)
     
+    # Available models
+    available_models = {
+        "1": ("amazon/chronos-bolt-tiny", "chronos-bolt-tiny"),
+        "2": ("amazon/chronos-bolt-mini", "chronos-bolt-mini"), 
+        "3": ("amazon/chronos-bolt-small", "chronos-bolt-small"),
+        "4": ("amazon/chronos-bolt-base", "chronos-bolt-base")
+    }
+    
+    print("Available models:")
+    for key, (model_name, model_type) in available_models.items():
+        print(f"  {key}. {model_name}")
+    
+    choice = input("\nSelect model (1-4, default=4): ").strip() or "4"
+    
+    if choice not in available_models:
+        print("Invalid choice. Using chronos-bolt-base.")
+        choice = "4"
+    
+    model_name, model_type = available_models[choice]
+    version = input(f"Enter version for {model_type} (default=v1.0): ").strip() or "v1.0"
+    
     # Check if model already exists
-    model_dir = Path("data/model")
+    model_dir = Path(f"data/model/{model_type}/{version}")
     if model_dir.exists() and any(model_dir.iterdir()):
         print(f"Model directory {model_dir} already contains files.")
         response = input("Do you want to re-download? (y/N): ").strip().lower()
@@ -80,19 +102,19 @@ def main():
             return
     
     # Clean up any existing temp directory
-    temp_dir = Path("data/model_temp")
+    temp_dir = Path(f"data/model_temp_{model_type}_{version}")
     if temp_dir.exists():
         shutil.rmtree(temp_dir)
     
     # Download the model
-    success = download_chronos_model()
+    success = download_chronos_model(model_name, model_type, version)
     
     if success:
         print("\n" + "=" * 40)
         print("Download completed successfully!")
-        print("The model is now available in data/model/")
+        print(f"The model is now available in data/model/{model_type}/{version}/")
         print("\nNext steps:")
-        print("1. Update config/settings.yaml to use the local model")
+        print(f"1. Update config/settings.yaml model_path to 'data/model/{model_type}/{version}'")
         print("2. Run your forecasting script")
     else:
         print("\n" + "=" * 40)

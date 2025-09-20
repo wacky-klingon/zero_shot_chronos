@@ -2,10 +2,16 @@ data:
   input_dir: "data/raw"
   output_dir: "data/processed"
   predictions_dir: "data/predictions"
+  model_dir: "data/model"
   
 model:
   prediction_length: 48
-  model_preset: "bolt_small"
+  model_path: "data/model/chronos-bolt-base/v1.0"
+  model_name: "amazon/chronos-bolt-base"
+  model_type: "chronos-bolt-base"
+  version: "v1.0"
+  loading_mode: "inference"  # Options: "train", "inference", "auto"
+  auto_detect_mode: true  # Automatically detect if model exists for inference vs training
   
 visualization:
   max_history_length: 200
