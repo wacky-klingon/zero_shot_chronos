@@ -10,19 +10,19 @@ base_model:
   save_metadata: true
 
 training:
-  epochs: 10
+  epochs: 2
   batch_size: 32
   learning_rate: 1e-4
   validation_split: 0.2
   dummy_data:
-    n_samples: 1000
+    n_samples: 100
     n_series: 10
     length: 200
     patterns: ["trend", "seasonal", "noise"]
 
 inference:
-  prediction_length: 48
-  context_length: 200
+  prediction_length: 24
+  context_length: 100
   quantiles: [0.1, 0.5, 0.9]
   output_path: "data/predictions"
 
