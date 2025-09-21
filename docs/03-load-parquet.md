@@ -36,6 +36,8 @@ class ParquetDataLoader:
         self.type_converter = TypeConverter()
         self.feature_processor = FeatureProcessor()
         self.file_discovery = FileDiscovery(self.config)
+        self.audit_logger = AuditLogger(self.config)
+        self.idempotency_tracker = IdempotencyTracker(self.config)
     
     def _load_config(self, config_path: str) -> ParquetLoaderConfig:
         """Load configuration - FAIL FAST if missing."""
@@ -52,15 +54,19 @@ class ParquetDataLoader:
     
     def discover_files(self, 
                       symbol: str, 
-                      year: int, 
+                      year: int = None,
+                      year_range: Tuple[int, int] = None,
                       month: int = None,
+                      month_range: Tuple[int, int] = None,
                       timeframes: List[str] = None) -> List[ParquetFileInfo]:
-        """Discover parquet files matching criteria."""
+        """Discover parquet files matching criteria with range support."""
         
     def load_training_data(self, 
                           symbol: str,
-                          year: int,
+                          year: int = None,
+                          year_range: Tuple[int, int] = None,
                           month: int = None,
+                          month_range: Tuple[int, int] = None,
                           target_columns: List[str] = None,
                           feature_columns: List[str] = None) -> TrainingDataset:
         """Load and prepare data for training from discovered files."""
@@ -76,6 +82,19 @@ class ParquetDataLoader:
                              symbol: str,
                              last_timestamp: datetime) -> IncrementalDataset:
         """Load only new data since last timestamp."""
+    
+    def is_already_processed(self, file_info: ParquetFileInfo) -> bool:
+        """Check if file has already been processed (idempotency)."""
+        
+    def mark_as_processed(self, file_info: ParquetFileInfo, status: str = "completed") -> None:
+        """Mark file as processed in idempotency tracker."""
+        
+    def start_audit_session(self, symbol: str, year_range: Tuple[int, int] = None, 
+                           month_range: Tuple[int, int] = None) -> str:
+        """Start audit session and return session ID."""
+        
+    def end_audit_session(self, session_id: str, status: str = "completed") -> None:
+        """End audit session with final status."""
 ```
 
 #### 1.2 FileDiscovery
@@ -90,29 +109,45 @@ class FileDiscovery:
     
     def discover_files(self, 
                       symbol: str, 
-                      year: int, 
+                      year: int = None,
+                      year_range: Tuple[int, int] = None,
                       month: int = None,
+                      month_range: Tuple[int, int] = None,
                       timeframes: List[str] = None) -> List[ParquetFileInfo]:
-        """Discover parquet files matching criteria."""
+        """Discover parquet files matching criteria with range support."""
         files = []
-        year_dir = self.root_dir / str(year)
         
-        if not year_dir.exists():
-            raise DataNotFoundError(f"Year directory not found: {year_dir}")
-        
-        if month:
-            month_dir = year_dir / f"{month:02d}"
-            if not month_dir.exists():
-                raise DataNotFoundError(f"Month directory not found: {month_dir}")
-            search_dirs = [month_dir]
+        # Determine year range to search
+        if year_range:
+            years_to_search = range(year_range[0], year_range[1] + 1)
+        elif year:
+            years_to_search = [year]
         else:
-            search_dirs = [d for d in year_dir.iterdir() if d.is_dir() and d.name.isdigit()]
+            raise ValueError("Either 'year' or 'year_range' must be specified")
         
-        for search_dir in search_dirs:
-            for file_path in search_dir.glob("*.parquet"):
-                file_info = self._parse_filename(file_path)
-                if self._matches_criteria(file_info, symbol, timeframes):
-                    files.append(file_info)
+        for search_year in years_to_search:
+            year_dir = self.root_dir / str(search_year)
+            
+            if not year_dir.exists():
+                continue  # Skip missing years instead of failing
+            
+            # Determine month range to search
+            if month_range:
+                months_to_search = range(month_range[0], month_range[1] + 1)
+            elif month:
+                months_to_search = [month]
+            else:
+                months_to_search = range(1, 13)  # All months
+            
+            for search_month in months_to_search:
+                month_dir = year_dir / f"{search_month:02d}"
+                if not month_dir.exists():
+                    continue  # Skip missing months
+                
+                for file_path in month_dir.glob("*.parquet"):
+                    file_info = self._parse_filename(file_path)
+                    if self._matches_criteria(file_info, symbol, timeframes):
+                        files.append(file_info)
         
         return sorted(files, key=lambda x: (x.year, x.month, x.symbol))
     
@@ -190,6 +225,104 @@ class TypeConverter:
         
     def handle_nulls(self, df: pd.DataFrame, strategy: str) -> pd.DataFrame:
         """Apply null handling strategy (forward_fill, interpolate, drop)."""
+```
+
+#### 1.4 IdempotencyTracker
+```python
+class IdempotencyTracker:
+    """Tracks processed files to ensure idempotency."""
+    
+    def __init__(self, config: ParquetLoaderConfig):
+        self.config = config
+        self.state_file = Path(config.data_paths.root_dir) / ".processed_files.json"
+        self.processed_files = self._load_state()
+    
+    def _load_state(self) -> Dict[str, Dict[str, Any]]:
+        """Load processed files state from disk."""
+        if self.state_file.exists():
+            with open(self.state_file, 'r') as f:
+                return json.load(f)
+        return {"processed_files": {}}
+    
+    def _save_state(self) -> None:
+        """Save processed files state to disk."""
+        with open(self.state_file, 'w') as f:
+            json.dump(self.processed_files, f, indent=2)
+    
+    def is_processed(self, file_info: ParquetFileInfo) -> bool:
+        """Check if file has already been processed."""
+        file_key = f"{file_info.symbol}_{file_info.year}_{file_info.month:02d}_{file_info.hash_id}"
+        return file_key in self.processed_files["processed_files"]
+    
+    def mark_processed(self, file_info: ParquetFileInfo, status: str = "completed") -> None:
+        """Mark file as processed."""
+        file_key = f"{file_info.symbol}_{file_info.year}_{file_info.month:02d}_{file_info.hash_id}"
+        self.processed_files["processed_files"][file_key] = {
+            "file_path": str(file_info.file_path),
+            "processed_at": datetime.now().isoformat(),
+            "checksum": self._calculate_checksum(file_info.file_path),
+            "status": status
+        }
+        self._save_state()
+    
+    def _calculate_checksum(self, file_path: Path) -> str:
+        """Calculate file checksum for change detection."""
+        import hashlib
+        with open(file_path, 'rb') as f:
+            return hashlib.md5(f.read()).hexdigest()
+```
+
+#### 1.5 AuditLogger
+```python
+class AuditLogger:
+    """Simple audit logging for progress tracking (KISS approach)."""
+    
+    def __init__(self, config: ParquetLoaderConfig):
+        self.config = config
+        self.audit_dir = Path(config.data_paths.root_dir) / "audit_logs"
+        self.audit_dir.mkdir(exist_ok=True)
+    
+    def start_session(self, symbol: str, year_range: Tuple[int, int] = None, 
+                     month_range: Tuple[int, int] = None) -> str:
+        """Start audit session and return session ID."""
+        session_id = f"{symbol}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        session_data = {
+            "session_id": session_id,
+            "start_time": datetime.now().isoformat(),
+            "symbol": symbol,
+            "year_range": year_range,
+            "month_range": month_range,
+            "files_discovered": 0,
+            "files_processed": 0,
+            "files_skipped": 0,
+            "status": "running"
+        }
+        
+        audit_file = self.audit_dir / f"{session_id}.json"
+        with open(audit_file, 'w') as f:
+            json.dump(session_data, f, indent=2)
+        
+        return session_id
+    
+    def update_session(self, session_id: str, **updates) -> None:
+        """Update session with progress information."""
+        audit_file = self.audit_dir / f"{session_id}.json"
+        
+        if audit_file.exists():
+            with open(audit_file, 'r') as f:
+                session_data = json.load(f)
+            
+            session_data.update(updates)
+            
+            with open(audit_file, 'w') as f:
+                json.dump(session_data, f, indent=2)
+    
+    def end_session(self, session_id: str, status: str = "completed") -> None:
+        """End audit session with final status."""
+        self.update_session(session_id, 
+                          end_time=datetime.now().isoformat(),
+                          status=status)
 ```
 
 ### 2. Configuration System
@@ -292,6 +425,19 @@ parquet_loader:
     memory_limit: "2GB"
     cache_intermediate: true
     cache_dir: "data/cache/parquet"
+  
+  # Idempotency settings
+  idempotency:
+    enabled: true
+    state_file: ".processed_files.json"
+    checksum_algorithm: "md5"  # md5, sha1, sha256
+    
+  # Audit logging settings
+  audit:
+    enabled: true
+    log_dir: "audit_logs"
+    session_timeout_hours: 24
+    max_log_files: 100
 ```
 
 ### 3. Data Loading Patterns
@@ -304,42 +450,81 @@ def load_training_data_pattern():
     # 1. Initialize loader with config - FAIL FAST
     loader = ParquetDataLoader("config/parquet_loader_config.yaml")
     
-    # 2. Discover files for training period
-    training_files = loader.discover_files(
+    # 2. Start audit session
+    session_id = loader.start_audit_session(
         symbol="SYMBOL",
-        year=2014,
-        month=None,  # Load all months in 2014
-        timeframes=["1min"]  # Only 1-minute data
+        year_range=(2014, 2016),  # Multi-year range
+        month_range=(1, 12)       # All months
     )
     
-    if not training_files:
-        raise DataNotFoundError("No training files found for SYMBOL in 2014")
-    
-    # 3. Load and combine parquet data
-    raw_data = loader.load_training_data(
-        symbol="SYMBOL",
-        year=2014,
-        month=None,
-        target_columns=config.schema.target_columns,
-        feature_columns=config.schema.feature_columns
-    )
-    
-    # 4. Apply data quality checks
-    quality_report = loader.validate_data_quality(raw_data)
-    if not quality_report.is_valid:
-        raise DataQualityError(f"Data quality issues: {quality_report.issues}")
-    
-    # 5. Feature engineering
-    processed_data = loader.feature_processor.process_training_features(raw_data)
-    
-    # 6. Create train/validation splits
-    train_data, val_data = loader.create_splits(
-        processed_data, 
-        validation_split=0.2,
-        time_based_split=True
-    )
-    
-    return TrainingDataset(train_data, val_data)
+    try:
+        # 3. Discover files for training period
+        training_files = loader.discover_files(
+            symbol="SYMBOL",
+            year_range=(2014, 2016),  # Range specification
+            month_range=(1, 12),
+            timeframes=["1min"]
+        )
+        
+        if not training_files:
+            raise DataNotFoundError("No training files found for SYMBOL in range 2014-2016")
+        
+        # 4. Update audit with discovered files
+        loader.audit_logger.update_session(session_id, files_discovered=len(training_files))
+        
+        # 5. Process files with idempotency checks
+        processed_count = 0
+        skipped_count = 0
+        
+        for file_info in training_files:
+            if loader.is_already_processed(file_info):
+                logger.info(f"Skipping already processed file: {file_info.file_path}")
+                skipped_count += 1
+                continue
+            
+            # Load and process file
+            raw_data = loader.load_training_data(
+                symbol="SYMBOL",
+                year=file_info.year,
+                month=file_info.month,
+                target_columns=config.schema.target_columns,
+                feature_columns=config.schema.feature_columns
+            )
+            
+            # Apply data quality checks
+            quality_report = loader.validate_data_quality(raw_data)
+            if not quality_report.is_valid:
+                logger.warning(f"Data quality issues in {file_info.file_path}: {quality_report.issues}")
+                continue
+            
+            # Feature engineering
+            processed_data = loader.feature_processor.process_training_features(raw_data)
+            
+            # Mark as processed
+            loader.mark_as_processed(file_info, "completed")
+            processed_count += 1
+        
+        # 6. Update audit with final counts
+        loader.audit_logger.update_session(session_id, 
+                                         files_processed=processed_count,
+                                         files_skipped=skipped_count)
+        
+        # 7. Create train/validation splits from all processed data
+        train_data, val_data = loader.create_splits(
+            processed_data, 
+            validation_split=0.2,
+            time_based_split=True
+        )
+        
+        return TrainingDataset(train_data, val_data)
+        
+    except Exception as e:
+        # End session with error status
+        loader.end_audit_session(session_id, "failed")
+        raise
+    finally:
+        # End session
+        loader.end_audit_session(session_id, "completed")
 ```
 
 #### 3.2 Prediction Time Loading
@@ -655,27 +840,39 @@ except ConfigError as e:
     print(f"Configuration error: {e}")
     exit(1)
 
-# Discover available data
+# Discover available data with range specification
 available_files = loader.discover_files(
     symbol="SYMBOL",
-    year=2014,
-    month=None,  # All months
+    year_range=(2014, 2016),  # Multi-year range
+    month_range=(1, 6),       # First half of each year
     timeframes=["1min"]
 )
 
-print(f"Found {len(available_files)} files for SYMBOL in 2014")
+print(f"Found {len(available_files)} files for SYMBOL in range 2014-2016, months 1-6")
 
-# Load training data
+# Start audit session
+session_id = loader.start_audit_session(
+    symbol="SYMBOL",
+    year_range=(2014, 2016),
+    month_range=(1, 6)
+)
+
+# Load training data with idempotency
 try:
     train_dataset = loader.load_training_data(
         symbol="SYMBOL",
-        year=2014,
-        month=None,
+        year_range=(2014, 2016),
+        month_range=(1, 6),
         target_columns=["target_close", "target_volatility"],
         feature_columns=["feature_1", "feature_2", "feature_3"]
     )
+    
+    # End audit session
+    loader.end_audit_session(session_id, "completed")
+    
 except DataNotFoundError as e:
     print(f"Data not found: {e}")
+    loader.end_audit_session(session_id, "failed")
     exit(1)
 
 # Use with Chronos trainer
@@ -753,7 +950,73 @@ predictions = chronos_loader.predict(context)
 - Feature completeness scores
 - Prediction accuracy correlation with data quality
 
-### 12. Actual Data Structure
+### 12. Enhanced Features
+
+#### 12.1 Range Specification
+The system supports flexible range specifications for both years and months:
+
+```python
+# Single year, all months
+files = loader.discover_files(symbol="SYMBOL", year=2014)
+
+# Year range, all months
+files = loader.discover_files(symbol="SYMBOL", year_range=(2014, 2016))
+
+# Single year, month range
+files = loader.discover_files(symbol="SYMBOL", year=2014, month_range=(3, 6))
+
+# Full range specification
+files = loader.discover_files(symbol="SYMBOL", year_range=(2014, 2016), month_range=(1, 6))
+```
+
+#### 12.2 Idempotency
+The system ensures idempotency by tracking processed files:
+
+```python
+# Check if file already processed
+if loader.is_already_processed(file_info):
+    logger.info("Skipping already processed file")
+    continue
+
+# Process file
+process_file(file_info)
+
+# Mark as processed
+loader.mark_as_processed(file_info, "completed")
+```
+
+**State Tracking**: Uses `.processed_files.json` in the root directory to track:
+- File path and metadata
+- Processing timestamp
+- File checksum for change detection
+- Processing status
+
+#### 12.3 Audit Logging (KISS)
+Simple JSON-based audit logging for progress tracking:
+
+```json
+{
+  "session_id": "SYMBOL_20240115_103000",
+  "start_time": "2024-01-15T10:30:00Z",
+  "end_time": "2024-01-15T10:45:00Z",
+  "symbol": "SYMBOL",
+  "year_range": [2014, 2016],
+  "month_range": [1, 6],
+  "files_discovered": 36,
+  "files_processed": 32,
+  "files_skipped": 4,
+  "status": "completed"
+}
+```
+
+**Audit Features**:
+- Session-based tracking with unique IDs
+- Progress counters (discovered, processed, skipped)
+- Start/end timestamps
+- Error status tracking
+- Simple JSON format for easy parsing
+
+### 13. Actual Data Structure
 
 Based on the provided directory structure, the system handles data organized as:
 
@@ -803,12 +1066,15 @@ parquet_loader:
 
 ## Conclusion
 
-This design provides a  framework for loading parquet data in the Chronos forecasting system. The modular architecture allows for incremental implementation while maintaining compatibility with existing training and prediction pipelines.
+This design provides a  framework for loading parquet data in the Chronos forecasting system. The modular architecture allows for incremental implementation while maintaining compatibility with existing training and prediction pipelines.doc 
 
 Key design principles:
 - **Fail-Fast Configuration**: No defaults, explicit configuration required
 - **Directory-Aware Discovery**: Handles year/month directory structure
 - **File Pattern Matching**: Robust parsing of standardized filenames
+- **Range Specification**: Flexible year/month range support for efficient data selection
+- **Idempotency**: Ensures no reprocessing of already processed data
+- **Audit Logging**: Simple KISS approach to progress tracking and traceability
 - **Error Handling**: Comprehensive exception hierarchy with clear error messages
 - **Performance**: Chunked loading, parallel processing, and memory optimization
 - **Integration**: Seamless integration with existing Chronos training and prediction pipelines
