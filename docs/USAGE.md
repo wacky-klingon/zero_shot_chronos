@@ -56,6 +56,9 @@ model:
 
 ### Input Data Format
 
+The system supports two data input formats:
+
+#### CSV Format (Traditional)
 Place your time series data in `data/raw/` as CSV files with these columns:
 - `timestamp` - Date/time values
 - `value` - Numeric time series values
@@ -69,11 +72,57 @@ timestamp,value,item_id
 2020-01-03,98.7,series_1
 ```
 
+#### Parquet Format (New - Recommended)
+For high-performance data loading, use the new parquet loader with structured data:
+
+**Directory Structure:**
+```
+data/parquet/
+├── 2014/
+│   ├── 01/
+│   │   └── SYMBOL_1min_h15_2014_01_769b531dbb2ff3cb.parquet
+│   └── 02/
+│       └── SYMBOL_1min_h15_2014_02_769b531dbb2ff3cb.parquet
+└── 2015/
+    └── 01/
+        └── SYMBOL_1min_h15_2015_01_769b531dbb2ff3cb.parquet
+```
+
+**Configuration:**
+```yaml
+# config/parquet_loader_config.yaml
+data_paths:
+  root_dir: "data/parquet"
+  file_pattern: "*.parquet"
+
+file_patterns:
+  naming_regex: "^(?P<symbol>\\w+)_(?P<timeframe>\\d+min)_h(?P<horizon>\\d+)_(?P<year>\\d{4})_(?P<month>\\d{2})_(?P<hash>\\w+)\\.parquet$"
+
+schema:
+  timestamp: "datetime64[ns]"
+  value: "float64"
+  item_id: "string"
+```
+
+**Usage:**
+```python
+from src.parquet_loader import ParquetDataLoader
+
+# Load data for specific year range
+loader = ParquetDataLoader("config/parquet_loader_config.yaml")
+data = loader.load_training_data(
+    symbol="SYMBOL",
+    year_range=(2014, 2016),
+    month_range=(1, 6)
+)
+```
+
 ### Supported Data Types
 
 - **Single series**: One time series in a CSV file
 - **Multi-series**: Multiple series with different `item_id` values
 - **Date formats**: ISO dates, timestamps, or any pandas-readable format
+- **Parquet files**: High-performance structured data with automatic discovery and idempotency
 
 ## Running Forecasts
 
@@ -136,6 +185,43 @@ visualization:
 ```
 
 ## Advanced Usage
+
+### Parquet Data Loading
+
+The new parquet loader provides advanced features for large-scale time series data:
+
+**Key Features:**
+- **Range-based loading**: Load specific year/month ranges
+- **Idempotency**: Automatic tracking of processed files
+- **Audit logging**: Complete trace of processing activities
+- **High performance**: Optimized for large datasets
+
+**Example - Range Loading:**
+```python
+# Load data for Q1-Q2 2014-2015
+data = loader.load_training_data(
+    symbol="SYMBOL",
+    year_range=(2014, 2015),
+    month_range=(1, 6)
+)
+
+# Load single year, all months
+data = loader.load_training_data(
+    symbol="SYMBOL",
+    year=2014
+)
+```
+
+**Example - Prediction Data:**
+```python
+# Load recent data for prediction
+prediction_data = loader.load_prediction_data(
+    symbol="SYMBOL",
+    year=2024,
+    month=12,
+    context_length=100
+)
+```
 
 ### Custom Model Paths
 

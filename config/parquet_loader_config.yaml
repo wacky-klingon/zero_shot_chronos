@@ -1,0 +1,111 @@
+# Parquet Loader Configuration
+# NO DEFAULTS - ALL VALUES MUST BE EXPLICITLY SPECIFIED
+
+parquet_loader:
+  # Data paths - NO DEFAULTS, FAIL FAST
+  data_paths:
+    root_dir: "/path/to/your/data/directory"  # REQUIRED - Must exist
+    # Optional: specific subdirectories for different data types
+    training_subdir: null  # Use root_dir if null
+    prediction_subdir: null  # Use root_dir if null
+    incremental_subdir: null  # Use root_dir if null
+  
+  # File naming patterns
+  file_patterns:
+    parquet_extension: ".parquet"
+    json_extension: ".json"
+    # Pattern: {SYMBOL}_{TIMEFRAME}_{HORIZON}_{YEAR}_{MONTH}_{HASH}
+    # Example: SYMBOL_1min_h15_2014_03_769b531dbb2ff3cb.parquet
+    naming_regex: "([A-Z]+)_([0-9]+min)_h([0-9]+)_([0-9]{4})_([0-9]{2})_([a-f0-9]+)\\.(parquet|json)$"
+    
+  # Directory structure
+  directory_structure:
+    year_format: "YYYY"  # 2014, 2015, etc.
+    month_format: "MM"   # 01, 02, 03, etc.
+    # Structure: {root_dir}/{YEAR}/{MONTH}/{filename}
+  
+  # Schema configuration - REQUIRED
+  schema:
+    datetime_column: "ds"
+    target_columns:
+      - "target_bid_first"
+      - "target_ask_first"
+      - "target_open"
+      - "target_close"
+      - "target_high"
+      - "target_low"
+      - "target_mid"
+      - "target_volatility"
+      - "target_returns"
+      - "target_spread"
+    
+    feature_columns:
+      yield_curve:
+        - "spread_10Y_2Y_GS10"
+        - "spread_10Y_2Y_GS2"
+        - "spread_10Y_2Y_10Y_2Y"
+        - "spread_10Y_2Y_GS3M"
+        - "spread_10Y_2Y_10Y_3M"
+        - "spread_10Y_3M_GS10"
+        - "spread_10Y_3M_GS2"
+        - "spread_10Y_3M_10Y_2Y"
+        - "spread_10Y_3M_GS3M"
+        - "spread_10Y_3M_10Y_3M"
+      
+      commodities:
+        - "gold_xauusd_bid"
+        - "gold_xauusd_ask"
+        - "gold_xauusd_bid_volume"
+        - "gold_xauusd_ask_volume"
+        - "oil_brent_bid"
+        - "oil_brent_ask"
+        - "oil_brent_bid_volume"
+        - "oil_brent_ask_volume"
+      
+      indices:
+        - "dxy_index_bid"
+        - "dxy_index_ask"
+        - "dxy_index_bid_volume"
+        - "dxy_index_ask_volume"
+        - "vix_index_vix_close"
+        - "vix_index_vix_high"
+        - "vix_index_vix_low"
+        - "vix_index_vix_open"
+        - "vix_index_volume"
+    
+    timestamp_columns:
+      - "spread_10Y_2Y_date"
+      - "spread_10Y_3M_date"
+  
+  # Data processing options
+  processing:
+    null_handling: "forward_fill"  # forward_fill, interpolate, drop
+    outlier_detection: true
+    outlier_method: "iqr"  # iqr, zscore, isolation_forest
+    outlier_threshold: 3.0
+    
+    # Memory optimization
+    optimize_dtypes: true
+    use_categorical: true
+    chunk_size: 10000
+    
+  # Performance settings
+  performance:
+    use_parallel: true
+    n_workers: 4
+    memory_limit: "2GB"
+    cache_intermediate: true
+    cache_dir: "data/cache/parquet"
+  
+  # Idempotency settings
+  idempotency:
+    enabled: true
+    state_file: ".processed_files.json"
+    checksum_algorithm: "md5"  # md5, sha1, sha256
+    
+  # Audit logging settings
+  audit:
+    enabled: true
+    log_dir: "audit_logs"
+    session_timeout_hours: 24
+    max_log_files: 100
